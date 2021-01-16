@@ -1,0 +1,13 @@
+1. Przygotowanie danych
+2. Przygotowanie planszy
+3. Odczytywanie punktów przyczepu
+4. Wyszukiwanie słów
+5. Algorytm minimax
+6. Typowanie najlepszego słowa
+
+wykrywanie słów
+sprawdzanie czy pierwsze słowo przechodzi przez środek
+sprawdzanie czy nowe słowo przylega
+obliczanie punktów
+weryfikacja słów
+
