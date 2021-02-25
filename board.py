@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from sack import Sack
 from tile import Tile
 from board_utils import *
+from dictionary import check_word
 
 
 class Board(QGraphicsView):
@@ -28,13 +29,14 @@ class Board(QGraphicsView):
 
         self.squares = {}
         self.tiles = {}
+        self.neighbours = set()
         self.adjacent_squares = {}
         self.sack = Sack()
         self.rack = []
         self.tiles_in_rack = {}
         self.tiles_added_in_current_turn = {}
 
-        self.algorithm = Algorithm(self)
+        # self.algorithm = Algorithm(self)
 
         self.total_points = 0
         self.points = 0
@@ -57,10 +59,6 @@ class Board(QGraphicsView):
     #     delta = event.angleDelta()
     #     self.deltaF = 1 + float(delta.y() / 1200)
     #     self.scale(self.deltaF, self.deltaF)
-
-    def illegal_move(self):
-        print(self.y())
-        print('illegal moive')
 
     def add_word_and_points(self, column, row, direction, first=None, last=None):
         word = ''
@@ -128,17 +126,18 @@ class Board(QGraphicsView):
         column = row = None
         columns = []
         rows = []
-        self.is_connected = False
+        self.is_connected = True
 
         if not self.tiles.get('7-7'):
             self.illegal_move()
+            print('Pierwszy wyraz musi przechodzić przez środek')
             return
 
         if self.tiles_added_in_current_turn.get('7-7'):
             self.is_connected = True
 
-        for coords in self.tiles_added_in_current_turn:
-            x, y = split_coords(coords)
+        for tile in self.tiles_added_in_current_turn:
+            x, y = split_coords(tile)
             if not column and not row:
                 column, row = x, y
             elif column and row:
@@ -147,19 +146,19 @@ class Board(QGraphicsView):
                 elif column == x:
                     row = columns = None
                 else:
-                    self.illegal_move()
+                    print('Wyrazy muszą być ułożone w jednej linii')
                     return
             if column:
                 if column == x:
                     rows.append(y)
                 else:
-                    self.illegal_move()
+                    print('Wyrazy muszą być ułożone w jednej linii')
                     return
             if row:
                 if row == y:
                     columns.append(x)
                 else:
-                    self.illegal_move()
+                    print('Wyrazy muszą być ułożone w jednej linii')
                     return
 
         self.words = []
@@ -178,8 +177,13 @@ class Board(QGraphicsView):
                 self.add_word_and_points(column, row, 'vertical')
 
         if not self.is_connected:
-            self.illegal_move()
+            print('Wyraz musi się stykać z występującymi już na planszy')
             return
+
+        for word in self.words:
+            if not check_word(word):
+                print(f'słowo {word} nie występuje w słowniku')
+                return
 
         for tile in self.tiles_added_in_current_turn.values():
             tile.set_immovable()
@@ -187,8 +191,21 @@ class Board(QGraphicsView):
         print(self.words)
         print(self.points)
 
+        self.neighbours = []
+        for tile in self.tiles:
+            if is_coords_of_rack(tile):
+                continue
+            if not tile_above(tile, self.tiles):
+                self.neighbours.append(coords_above(tile))
+            if not tile_below(tile, self.tiles):
+                self.neighbours.append(coords_below(tile))
+            if not tile_on_right(tile, self.tiles):
+                self.neighbours.append(coords_on_right(tile))
+            if not tile_on_left(tile, self.tiles):
+                self.neighbours.append(coords_on_left(tile))
+
         self.add_letters_to_rack()
-        # self.tiles_added_in_current_turn = {}
+        self.tiles_added_in_current_turn = {}
 
     def on_tile_move(self, tile):
         x, y = split_coords(tile.coords)
@@ -335,26 +352,38 @@ class Board(QGraphicsView):
         self.bonus_fields.append(double_letter_bonuses)
 
 
-class Algorithm:
-    def __init__(self, board_to_play):
-        self.board = board_to_play
-
-        self.words = {}
-        self.rack = self.board.sack.draw(7)
-        self.tiles = None
-        self.permutations = None
-
-    def turn(self):
-        self.tiles = self.board.tiles
-        self.words = [set() for _ in range(16)]
-
-        for tile in self.tiles.keys():
-            if is_coords_of_rack(tile.coors):
-                continue
-            if not tile_above(tile, self.tiles):
-                continue
-            if not tile_on_right(tile, self.tiles):
-                continue
+# class Algorithm:
+#     def __init__(self, board_to_play):
+#         self.board = board_to_play
+#
+#         self.words = {}
+#         self.rack = self.board.sack.draw(7)
+#         self.tiles = None
+#         self.permutations = None
+#
+#     def turn(self):
+#         self.tiles = self.board.tiles
+#         self.words = [set() for _ in range(16)]
+#
+#         # words = self.board.dic
+#
+#         for neighbour in self.board.neighbours:
+#             direction = None
+#             if tile_above(neighbour) or tile_below(neighbour):
+#                 direction = 'horizontal'
+#             if tile_on_right(neighbour) or tile_on_left(neighbour):
+#                 if direction:
+#                     continue
+#                 direction = 'vertical'
+#
+#         for tile in self.tiles.keys():
+#             coords = tile.coords
+#             if is_coords_of_rack(coords):
+#                 continue
+#             if not tile_above(coords, self.tiles):
+#                 continue
+#             if not tile_on_right(coords, self.tiles):
+#                 continue
 
 
 # def app():
@@ -366,7 +395,7 @@ def main(frame):
     main_window = QMainWindow()
 
     main_window.setCentralWidget(frame)
-    width = frame.width() + 10
+    width = frame.width() + 400
     height = int(frame.height() * 1.6)
 
     main_window.setFixedSize(width, height)

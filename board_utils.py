@@ -38,24 +38,40 @@ def split_coords(coords):
     return int(x), int(y)
 
 
-def tile_above(tile, tiles_dict):
-    x, y = split_coords(tile.coords)
-    return tiles_dict.get(f'{x}-{y - 1}')
+def coords_above(coords):
+    x, y = split_coords(coords)
+    return f'{x}-{y - 1}'
 
 
-def tile_below(tile, tiles_dict):
-    x, y = split_coords(tile.coords)
-    return tiles_dict.get(f'{x}-{y + 1}')
+def coords_below(coords):
+    x, y = split_coords(coords)
+    return f'{x}-{y + 1}'
 
 
-def tile_on_right(tile, tiles_dict):
-    x, y = split_coords(tile.coords)
-    return tiles_dict.get(f'{x + 1}-{y}')
+def coords_on_right(coords):
+    x, y = split_coords(coords)
+    return f'{x + 1}-{y}'
 
 
-def tile_on_left(tile, tiles_dict):
-    x, y = split_coords(tile.coords)
-    return tiles_dict.get(f'{x - 1}-{y}')
+def coords_on_left(coords):
+    x, y = split_coords(coords)
+    return f'{x - 1}-{y}'
+
+
+def tile_above(coords, tiles_dict):
+    return tiles_dict.get(coords_above(coords))
+
+
+def tile_below(coords, tiles_dict):
+    return tiles_dict.get(coords_below(coords))
+
+
+def tile_on_right(coords, tiles_dict):
+    return tiles_dict.get(coords_on_right(coords))
+
+
+def tile_on_left(coords, tiles_dict):
+    return tiles_dict.get(coords_on_left(coords))
 
 
 triple_word_bonus_positions = ['A1', 'A8', 'A15', 'H1', 'H15', 'O1', 'O8', 'O15']

@@ -1,3 +1,6 @@
+from itertools import permutations
+
+
 def prepare_data(text):
     words = [set() for _ in range(16)]
     for word in text.split('\n'):
@@ -13,14 +16,17 @@ def words_reader(file_name):
     return words
 
 
-class Dictionary:
-    words = words_reader('slowa.txt')
-    pairs = words_reader('dwojki.txt')
-    threes = words_reader('trojki.txt')
-
-    def __init__(self):
-        print()
+words = words_reader('slowa.txt')
 
 
+def find_words(rack):
+    words = [set() for _ in range(len(rack) + 1)]
+    for length in range(len(rack) + 1):
+        words[length] = [''.join(p) for p in set(permutations(rack, length))]
+        words[length] = [word for word in words[length] if word in words[length]]
+    print(words)
 
 
+def check_word(word):
+    word = word.lower()
+    return word in words[len(word)]
