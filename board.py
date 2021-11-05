@@ -1,59 +1,57 @@
-import sys
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
+
+import sack
 from sack import Sack
 from tile import Tile
 from board_utils import *
-from dictionary import check_word
+from dictionary import is_word_in_dictionary
+from ai import AI
 
 
 class Board(QGraphicsView):
-    def __init__(self):
+    def __init__(self, score):
         QGraphicsView.__init__(self)
 
-        self.rows = 15
-        self.columns = 15
-        self.size = 4
+        self.ROWS = 15
+        self.COLUMNS = 15
+        self.SIZE = 4
 
         # self.deltaF = 1.0
 
-        self.scale_manual = 10
-        self.shift_focus = QPointF(0, 0)
+        self.SCALE_MANUAL = 10
+        self.SHIFT_FOCUS = QPointF(0, 0)
 
-        self.bonus_fields = []
-        self.double_word_bonuses = []
-        self.triple_word_bonuses = []
-        self.double_letter_bonuses = []
-        self.triple_letter_bonuses = []
+        self._squares = {}
+        self._bonus_fields = []
+        self._double_word_bonuses = []
+        self._triple_word_bonuses = []
+        self._double_letter_bonuses = []
+        self._triple_letter_bonuses = []
 
-        self.squares = {}
+        self._tiles_in_rack = {}
+        self._rack = []
+        self._total_points = 0
+        self._points = 0
+        self._words = []
+        self._is_connected = False
+
+        # parameters visible for AI
+        # score represents total score of both players
+        self.score = score
+        # latest tiles represent tiles added in last turn
+        self.latest_tiles = {}
+        # tiles represent all tiles on board
         self.tiles = {}
-        self.neighbours = set()
-        self.adjacent_squares = {}
+        # sack represents sack
         self.sack = Sack()
-        self.rack = []
-        self.tiles_in_rack = {}
-        self.tiles_added_in_current_turn = {}
-
-        # self.algorithm = Algorithm(self)
-
-        self.total_points = 0
-        self.points = 0
-        self.words = []
-        self.is_connected = False
+        self.ai = AI(self.latest_tiles, self.tiles, self.sack)
 
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
         self.setScene(self.scene)
-
-        self.button = QPushButton('Zakończ ruch', self)
-        self.button.clicked.connect(self.end_turn)
-        self.button.setStyleSheet("QPushButton { background-color: blue; color: white; font-size: 20px; "
-                                  "margin-top: 7px; margin-left: 263px; padding: 3px}"
-                                  "QPushButton:hover { background-color: navy }"
-                                  "QPushButton:pressed { background-color: black }")
 
     # def wheelEvent(self, event):
     #     delta = event.angleDelta()
@@ -99,45 +97,59 @@ class Board(QGraphicsView):
 
             tile = self.tiles.get(coords)
             if not tile:
-                self.illegal_move()
+                print("some mistake")
+                return
 
-            if not self.tiles_added_in_current_turn.get(coords):
-                self.is_connected = True
+            if not self.latest_tiles.get(coords):
+                self._is_connected = True
 
             points = tile.points
 
-            if self.tiles_added_in_current_turn.get(coords):
-                if coords in self.double_letter_bonuses:
+            if self.latest_tiles.get(coords):
+                if coords in self._double_letter_bonuses:
                     points *= 2
-                elif coords in self.triple_letter_bonuses:
+                elif coords in self._triple_letter_bonuses:
                     points *= 3
-                elif coords in self.double_word_bonuses:
+                elif coords in self._double_word_bonuses:
                     word_multiplier *= 2
-                elif coords in self.triple_word_bonuses:
+                elif coords in self._triple_word_bonuses:
                     word_multiplier *= 3
 
             word_points += points
             word += tile.letter
 
-        self.words.append(word)
-        self.points += word_points * word_multiplier
+        self._words.append(word)
+        self._points += word_points * word_multiplier
 
     def end_turn(self):
         column = row = None
         columns = []
         rows = []
-        self.is_connected = True
+        self._is_connected = True
+
+        if not self.tiles or not self.latest_tiles:
+            print('Musisz najpierw wykonać ruch')
+            return
 
         if not self.tiles.get('7-7'):
-            self.illegal_move()
             print('Pierwszy wyraz musi przechodzić przez środek')
             return
 
-        if self.tiles_added_in_current_turn.get('7-7'):
-            self.is_connected = True
+        if self.latest_tiles.get('7-7'):
+            self._is_connected = True
 
-        for tile in self.tiles_added_in_current_turn:
-            x, y = split_coords(tile)
+        for tile_coords in self.latest_tiles:
+            tile = self.latest_tiles.get(tile_coords)
+            if tile.letter == '_':
+                new_letter = input("Jaka litera ma być blank?").upper()
+                if new_letter in sack.Sack.values:
+                    # new_tile = Tile(new_letter, 0, tile.pos(), self.on_tile_move)
+                    # self.scene.removeItem(tile)
+                    # tile.letter = new_letter
+                    # self.scene.addItem(new_tile)
+                    # self.latest_tiles[tile_coords] = new_tile
+                    tile.change_blank(new_letter)
+            x, y = split_coords(tile_coords)
             if not column and not row:
                 column, row = x, y
             elif column and row:
@@ -161,8 +173,8 @@ class Board(QGraphicsView):
                     print('Wyrazy muszą być ułożone w jednej linii')
                     return
 
-        self.words = []
-        self.points = 0
+        self._words = []
+        self._points = 0
 
         if rows:
             self.add_word_and_points(column, rows[0], 'vertical', min(rows), max(rows))
@@ -176,36 +188,26 @@ class Board(QGraphicsView):
             for column in columns:
                 self.add_word_and_points(column, row, 'vertical')
 
-        if not self.is_connected:
+        if not self._is_connected:
             print('Wyraz musi się stykać z występującymi już na planszy')
             return
 
-        for word in self.words:
-            if not check_word(word):
+
+        for word in self._words:
+            if not is_word_in_dictionary(word):
                 print(f'słowo {word} nie występuje w słowniku')
                 return
 
-        for tile in self.tiles_added_in_current_turn.values():
-            tile.set_immovable()
+        for tile_coords in self.latest_tiles.values():
+            tile_coords.set_immovable()
 
-        print(self.words)
-        print(self.points)
+        print(self._words)
+        print(self._points)
 
-        self.neighbours = []
-        for tile in self.tiles:
-            if is_coords_of_rack(tile):
-                continue
-            if not tile_above(tile, self.tiles):
-                self.neighbours.append(coords_above(tile))
-            if not tile_below(tile, self.tiles):
-                self.neighbours.append(coords_below(tile))
-            if not tile_on_right(tile, self.tiles):
-                self.neighbours.append(coords_on_right(tile))
-            if not tile_on_left(tile, self.tiles):
-                self.neighbours.append(coords_on_left(tile))
-
+        self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
-        self.tiles_added_in_current_turn = {}
+        self.ai.turn()
+        self.latest_tiles.clear()
 
     def on_tile_move(self, tile):
         x, y = split_coords(tile.coords)
@@ -213,37 +215,42 @@ class Board(QGraphicsView):
         if y == 15 or y == 16 and not 3 < x < 12:
             tile.undo_move()
             return
-        elif other_tile := self.tiles.get(tile.coords):
+        elif other_tile := self.latest_tiles.get(tile.coords):
             tile.swap_with_other(other_tile)
 
             self.tiles[tile.coords] = tile
             self.tiles[other_tile.coords] = other_tile
 
             if is_coords_of_rack(tile.coords):
-                self.tiles_in_rack[tile.coords] = tile
+                self._tiles_in_rack[tile.coords] = tile
             else:
-                self.tiles_added_in_current_turn[tile.coords] = tile
+                self.latest_tiles[tile.coords] = tile
 
             if is_coords_of_rack(other_tile.coords):
-                self.tiles_in_rack[other_tile.coords] = other_tile
+                self._tiles_in_rack[other_tile.coords] = other_tile
             else:
-                self.tiles_added_in_current_turn[other_tile.coords] = other_tile
+                self.latest_tiles[other_tile.coords] = other_tile
 
+        elif self.tiles.get(tile.coords):
+            tile.undo_move()
+            return
         else:
             if y != 16 and tile.old_coords.split('-')[1] == '16':
-                self.rack.remove(tile.letter)
+                self._rack.remove(tile.letter)
             del self.tiles[tile.old_coords]
             self.tiles[tile.coords] = tile
 
             if is_coords_of_rack(tile.coords):
-                self.tiles_in_rack[tile.coords] = tile
+                self._tiles_in_rack[tile.coords] = tile
             else:
-                self.tiles_added_in_current_turn[tile.coords] = tile
+                self.latest_tiles[tile.coords] = tile
 
             if is_coords_of_rack(tile.old_coords):
-                del self.tiles_in_rack[tile.old_coords]
+                del self._tiles_in_rack[tile.old_coords]
             else:
-                del self.tiles_added_in_current_turn[tile.old_coords]
+                del self.latest_tiles[tile.old_coords]
+        if y == 16 and 3 < x < 12:
+            self._rack.append(tile.letter)
 
     def build_board_scene(self):
         self.build_squares()
@@ -255,20 +262,20 @@ class Board(QGraphicsView):
         brush = QBrush(Qt.white)
         pen = QPen(Qt.black, 1, Qt.SolidLine)
 
-        for row in range(self.rows):
-            for column in range(self.columns):
+        for row in range(self.ROWS):
+            for column in range(self.COLUMNS):
                 square = self.add_square(row, column, pen, brush)
 
-                self.squares[f"{row}-{column}"] = square
+                self._squares[f"{row}-{column}"] = square
 
     def build_bonus_fields(self):
-        for bonus_field in self.bonus_fields:
+        for bonus_field in self._bonus_fields:
             brush = bonus_field["Brush"]
             pen = None
             bonus_fields = []
 
             for position in bonus_field["Positions"]:
-                square = self.squares[position]
+                square = self._squares[position]
                 bonus_fields.append(square)
 
             paint_graphic_items(bonus_fields, pen, brush)
@@ -283,25 +290,25 @@ class Board(QGraphicsView):
     def add_letters_to_rack(self):
         for column in range(4, 12):
             coords = f"{column}-16"
-            if not self.tiles.get(coords) and len(self.tiles_in_rack) < 7:
+            if not self.tiles.get(coords) and len(self._tiles_in_rack) < 7:
                 letter = self.sack.draw_one()
-                self.rack.append(letter)
+                self._rack.append(letter)
 
                 position = QPointF(column * 40.0 + 30, 16 * 40.0 + 22)
                 points = Sack.values.get(letter)
                 tile = Tile(letter, points, position, self.on_tile_move)
                 self.scene.addItem(tile)
-                self.tiles_in_rack[coords] = tile
+                self._tiles_in_rack[coords] = tile
                 self.tiles[coords] = tile
 
     def add_square(self, row, column, pen, brush):
-        height = self.size * self.scale_manual
-        width = self.size * self.scale_manual
+        height = self.SIZE * self.SCALE_MANUAL
+        width = self.SIZE * self.SCALE_MANUAL
 
         column_distance = column * width
         row_distance = row * height
 
-        screen_offset = 2 * self.scale_manual
+        screen_offset = 2 * self.SCALE_MANUAL
 
         x = column_distance + screen_offset
         y = row_distance + screen_offset
@@ -318,8 +325,8 @@ class Board(QGraphicsView):
             "Brush": triple_word_brush,
             "Positions": triple_word_bonus_coords
         }
-        self.triple_word_bonuses = triple_word_bonus_coords
-        self.bonus_fields.append(triple_word_bonuses)
+        self._triple_word_bonuses = triple_word_bonus_coords
+        self._bonus_fields.append(triple_word_bonuses)
 
         double_word_brush = QBrush(QColor(255, 0, 0, 100))
 
@@ -328,8 +335,8 @@ class Board(QGraphicsView):
             "Brush": double_word_brush,
             "Positions": double_word_bonus_coords
         }
-        self.double_word_bonuses = double_word_bonus_coords
-        self.bonus_fields.append(double_word_bonuses)
+        self._double_word_bonuses = double_word_bonus_coords
+        self._bonus_fields.append(double_word_bonuses)
 
         triple_letter_brush = QBrush(QColor(0, 0, 255, 180))
 
@@ -338,8 +345,8 @@ class Board(QGraphicsView):
             "Brush": triple_letter_brush,
             "Positions": triple_letter_bonus_coords
         }
-        self.triple_letter_bonuses = triple_letter_bonus_coords
-        self.bonus_fields.append(triple_letter_bonuses)
+        self._triple_letter_bonuses = triple_letter_bonus_coords
+        self._bonus_fields.append(triple_letter_bonuses)
 
         double_letter_brush = QBrush(QColor(0, 0, 255, 100))
 
@@ -348,64 +355,8 @@ class Board(QGraphicsView):
             "Brush": double_letter_brush,
             "Positions": double_letter_bonus_coords
         }
-        self.double_letter_bonuses = double_letter_bonus_coords
-        self.bonus_fields.append(double_letter_bonuses)
+        self._double_letter_bonuses = double_letter_bonus_coords
+        self._bonus_fields.append(double_letter_bonuses)
 
 
-# class Algorithm:
-#     def __init__(self, board_to_play):
-#         self.board = board_to_play
-#
-#         self.words = {}
-#         self.rack = self.board.sack.draw(7)
-#         self.tiles = None
-#         self.permutations = None
-#
-#     def turn(self):
-#         self.tiles = self.board.tiles
-#         self.words = [set() for _ in range(16)]
-#
-#         # words = self.board.dic
-#
-#         for neighbour in self.board.neighbours:
-#             direction = None
-#             if tile_above(neighbour) or tile_below(neighbour):
-#                 direction = 'horizontal'
-#             if tile_on_right(neighbour) or tile_on_left(neighbour):
-#                 if direction:
-#                     continue
-#                 direction = 'vertical'
-#
-#         for tile in self.tiles.keys():
-#             coords = tile.coords
-#             if is_coords_of_rack(coords):
-#                 continue
-#             if not tile_above(coords, self.tiles):
-#                 continue
-#             if not tile_on_right(coords, self.tiles):
-#                 continue
 
-
-# def app():
-#     global app
-#     app = QtWidgets.QApplication(sys.argv)
-
-
-def main(frame):
-    main_window = QMainWindow()
-
-    main_window.setCentralWidget(frame)
-    width = frame.width() + 400
-    height = int(frame.height() * 1.6)
-
-    main_window.setFixedSize(width, height)
-    main_window.show()
-    # main.showMaximized()
-
-    sys.exit(app.exec_())
-
-
-if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    board = Board()
-    main(board)

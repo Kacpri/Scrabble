@@ -33,6 +33,11 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
         points.setX(8)
         points.setY(8)
 
+    def change_blank(self, new_letter):
+        if self.letter == '_':
+            self.letter = new_letter.upper()
+            self.setText(new_letter)
+
     def mousePressEvent(self, event):
         self.old_position = self.pos()
         self.old_coords = self.coords

@@ -6,8 +6,17 @@
 6. Typowanie najlepszego słowa
 
 wykrywanie słów
-sprawdzanie czy pierwsze słowo przechodzi przez środek
-sprawdzanie czy nowe słowo przylega
+sprawdzanie, czy pierwsze słowo przechodzi przez środek
+sprawdzanie, czy nowe słowo przylega
 obliczanie punktów
 weryfikacja słów
+
+Jak ai widzi planszę?
+Jak znajduje słowa?
+Jak wybiera słowo?
+Jak układa słowo?
+
+Tablica wyników
+wymiana liter
+komunikaty
 
