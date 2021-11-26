@@ -143,11 +143,6 @@ class Board(QGraphicsView):
             if tile.letter == '_':
                 new_letter = input("Jaka litera ma być blank?").upper()
                 if new_letter in sack.Sack.values:
-                    # new_tile = Tile(new_letter, 0, tile.pos(), self.on_tile_move)
-                    # self.scene.removeItem(tile)
-                    # tile.letter = new_letter
-                    # self.scene.addItem(new_tile)
-                    # self.latest_tiles[tile_coords] = new_tile
                     tile.change_blank(new_letter)
             x, y = split_coords(tile_coords)
             if not column and not row:
@@ -191,7 +186,6 @@ class Board(QGraphicsView):
         if not self._is_connected:
             print('Wyraz musi się stykać z występującymi już na planszy')
             return
-
 
         for word in self._words:
             if not is_word_in_dictionary(word):
@@ -256,6 +250,7 @@ class Board(QGraphicsView):
         self.build_squares()
         self.build_bonus_fields()
         self.build_rack()
+        self.build_labels()
 
     def build_squares(self):
 
@@ -316,6 +311,20 @@ class Board(QGraphicsView):
         rectangle = QRectF(x, y, width, height)
 
         return self.scene.addRect(rectangle, pen, brush)
+
+    def build_labels(self):
+        for number in range(1, 16):
+            letter_position = QPointF(number * 40.0 - 3.0, 0.0)
+            number_position = QPointF(5.0, number * 40.0 - 6.0)
+            letter_label = QGraphicsSimpleTextItem(chr(number + ord('A') - 1))
+            number = str(number)
+            if len(number) < 2:
+                number = ' ' + number
+            number_label = QGraphicsSimpleTextItem(number)
+            letter_label.setPos(letter_position)
+            number_label.setPos(number_position)
+            self.scene.addItem(number_label)
+            self.scene.addItem(letter_label)
 
     def create_bonus_fields(self):
 

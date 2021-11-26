@@ -36,7 +36,7 @@ def is_word_in_dictionary(word):
     return False
 
 
-def possible_words_with_blank(word):
+def possible_words_with_blank(word, find_letters=False):
     word = word.lower()
     if '_' not in word:
         return word
@@ -47,8 +47,12 @@ def possible_words_with_blank(word):
         if '_' in new_word:
             words.extend(possible_words_with_blank(new_word))
         elif new_word in dictionary[len(word)]:
-            words.append(new_word)
+            words.append(letter if find_letters else new_word)
     return words
+
+
+def possible_letters(pattern):
+    return possible_words_with_blank(pattern, True)
 
 
 def find_words(rack):
@@ -89,7 +93,7 @@ def find_groups(length):
     return groups
 
 
-def main():
+def test():
     # rack = ['A', 'A', 'A', 'A', 'A', 'R', '_']
     # find_words(rack)
     # print(possible_words_with_blank('kot'))
@@ -99,4 +103,4 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    test()

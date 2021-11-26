@@ -74,6 +74,7 @@ def tile_on_left(coords, tiles_dict):
     return tiles_dict.get(coords_on_left(coords))
 
 
+
 triple_word_bonus_positions = ['A1', 'A8', 'A15', 'H1', 'H15', 'O1', 'O8', 'O15']
 triple_word_bonus_coords = algebraic_notations_to_coords(triple_word_bonus_positions)
 
