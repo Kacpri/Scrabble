@@ -69,9 +69,9 @@ class Board(QGraphicsView):
             if not last:
                 last = column
 
-            while self.tiles.get(f'{first - 1}-{row}'):
+            while self.tiles.get(f'{first - 1}={row}'):
                 first -= 1
-            while self.tiles.get(f'{last + 1}-{row}'):
+            while self.tiles.get(f'{last + 1}={row}'):
                 last += 1
 
         elif direction == 'vertical':
@@ -80,9 +80,9 @@ class Board(QGraphicsView):
             if not last:
                 last = row
 
-            while self.tiles.get(f'{column}-{first - 1}'):
+            while self.tiles.get(f'{column}={first - 1}'):
                 first -= 1
-            while self.tiles.get(f'{column}-{last + 1}'):
+            while self.tiles.get(f'{column}={last + 1}'):
                 last += 1
 
         if first == last:
@@ -91,9 +91,9 @@ class Board(QGraphicsView):
         for current in range(first, last + 1):
             coords = None
             if direction == 'horizontal':
-                coords = f'{current}-{row}'
+                coords = f'{current}={row}'
             elif direction == 'vertical':
-                coords = f'{column}-{current}'
+                coords = f'{column}={current}'
 
             tile = self.tiles.get(coords)
             if not tile:
@@ -131,17 +131,17 @@ class Board(QGraphicsView):
             print('Musisz najpierw wykonać ruch')
             return
 
-        if not self.tiles.get('7-7'):
+        if not self.tiles.get('7=7'):
             print('Pierwszy wyraz musi przechodzić przez środek')
             return
 
-        if self.latest_tiles.get('7-7'):
+        if self.latest_tiles.get('7=7'):
             self._is_connected = True
 
         for tile_coords in self.latest_tiles:
             tile = self.latest_tiles.get(tile_coords)
             if tile.letter == '_':
-                new_letter = input("Jaka litera ma być blank?").upper()
+                new_letter = input("Jaką literą ma być blank?").upper()
                 if new_letter in sack.Sack.values:
                     tile.change_blank(new_letter)
             x, y = split_coords(tile_coords)
@@ -229,7 +229,7 @@ class Board(QGraphicsView):
             tile.undo_move()
             return
         else:
-            if y != 16 and tile.old_coords.split('-')[1] == '16':
+            if y != 16 and tile.old_coords.split('=')[1] == '16':
                 self._rack.remove(tile.letter)
             del self.tiles[tile.old_coords]
             self.tiles[tile.coords] = tile
@@ -261,7 +261,7 @@ class Board(QGraphicsView):
             for column in range(self.COLUMNS):
                 square = self.add_square(row, column, pen, brush)
 
-                self._squares[f"{row}-{column}"] = square
+                self._squares[f"{row}={column}"] = square
 
     def build_bonus_fields(self):
         for bonus_field in self._bonus_fields:
@@ -284,7 +284,7 @@ class Board(QGraphicsView):
 
     def add_letters_to_rack(self):
         for column in range(4, 12):
-            coords = f"{column}-16"
+            coords = f"{column}=16"
             if not self.tiles.get(coords) and len(self._tiles_in_rack) < 7:
                 letter = self.sack.draw_one()
                 self._rack.append(letter)

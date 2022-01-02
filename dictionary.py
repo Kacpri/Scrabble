@@ -12,12 +12,16 @@ def prepare_data(text):
 def words_reader(file_name):
     file = open(file_name, "r", encoding='utf-8')
     file_content = file.read()
-    words = prepare_data(file_content)
     file.close()
-    return words
+    return file_content
 
 
-dictionary = words_reader('slowa.txt')
+data = words_reader('slowa.txt')
+dictionary = prepare_data(data)
+data = words_reader('czworki.txt')
+quads = []
+for quad in data.split('\n'):
+    quads.append(quad)
 
 
 def is_word_in_dictionary(word):
@@ -34,6 +38,10 @@ def is_word_in_dictionary(word):
     if word in dictionary[len(word)]:
         return True
     return False
+
+
+def is_in_quads(word):
+    return word.lower() in quads
 
 
 def possible_words_with_blank(word, find_letters=False):
@@ -62,7 +70,6 @@ def find_words(rack):
             word = ''.join(permutation).lower()
             if is_word_in_dictionary(word):
                 words[length].add(word)
-    print(words)
 
 
 def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length_right):
@@ -83,24 +90,24 @@ def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length
 
 
 def find_groups(length):
-    groups = []
+    groups = set()
     for words_by_length in dictionary:
         for word in words_by_length:
             for i in range(len(word) + 1 - length):
                 group = word[i:i + length]
                 if not any(letter in group for letter in ['v', 'x', 'q']):
-                    groups.append(group)
+                    groups.add(group)
     return groups
 
 
-def test():
-    # rack = ['A', 'A', 'A', 'A', 'A', 'R', '_']
-    # find_words(rack)
-    # print(possible_words_with_blank('kot'))
-    print(is_word_in_dictionary('__uk'))
-    print(possible_words_with_blank('__uk'))
-    print(possible_words_with_blank('r_nd_l'))
+def install():
+    filenames = ["trojki.txt", "czworki.txt", "piatki.txt", "szostki.txt", "siodemki.txt"]
+    for count in range(5):
+        file = open(filenames[count], "w", encoding='utf-8')
+        groups = find_groups(count + 3)
+        for group in sorted(groups):
+            file.write(f'{group}\n')
 
 
 if __name__ == '__main__':
-    test()
+    install()

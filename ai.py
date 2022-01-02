@@ -1,5 +1,6 @@
 from board_utils import *
 from dictionary import *
+from word import Word
 
 
 class AI:
@@ -8,18 +9,69 @@ class AI:
         self.latest_tiles = latest_tiles
         self.sack = sack
 
-        self.words = {}
-        self.rack = self.sack.draw(7)
+        self.words = None
+        self.rack = ['W', 'Z', 'K', 'A', 'E', 'S', 'R']
+        # self.rack = self.sack.draw(7)
         self.permutations = None
         self.vertical_neighbours = {}
         self.horizontal_neighbours = {}
+        self.neighbours_to_check_upwards = None
+        self.neighbours_to_check_downwards = None
+        self.neighbours_to_check_leftwards = None
+        self.neighbours_to_check_rightwards = None
+        self.all_permutations = []
 
     def get_tile(self, coords):
         return self.tiles.get(coords)
 
+    def is_opposite_vertical_neighbour(self, neighbour, another_neighbour):
+        x1, y1 = split_coords(neighbour)
+        x2, y2 = split_coords(another_neighbour)
+        if y1 == y2:
+            if x1 == x2:
+                return False
+            elif x2 < x1:
+                neighbour, another_neighbour = another_neighbour, neighbour
+            while neighbour := coords_on_right(neighbour):
+                if neighbour == another_neighbour:
+                    return True
+                if not self.get_tile(neighbour):
+                    break
+        return False
+
+    def is_opposite_horizontal_neighbour(self, neighbour, another_neighbour):
+        x1, y1 = split_coords(neighbour)
+        x2, y2 = split_coords(another_neighbour)
+        if x1 == x2:
+            if y1 == y2:
+                return False
+            elif y2 < y1:
+                neighbour, another_neighbour = another_neighbour, neighbour
+            while neighbour := coords_below(neighbour):
+                if neighbour == another_neighbour:
+                    return True
+                if not self.get_tile(neighbour):
+                    break
+
+        return False
+
+    # def find_all_permutations(self):
+    #     all_permutations = []
+    #     for length in range(1, 8):
+    #         all_permutations = all_permutations + list(permutations(self.rack, length))
+    #
+    #     self.all_permutations.clear()
+    #     for permutation in all_permutations:
+    #         self.all_permutations.append("".join(permutation))
+    #     for permutation in self.all_permutations:
+    #         if '_' in permutation:
+    #             for letter in Sack.values_without_blank():
+    #                 self.all_permutations = self.all_permutations + permutation.replace('_', letter)
+    #             self.all_permutations.remove(permutation)
+
     def find_sequence(self, direction, first_neighbour_coords, sequence="", reversed_order=False):
         neighbour_coords = first_neighbour_coords
-        while neighbour := self.get_tile(direction):
+        while neighbour := self.get_tile(direction(neighbour_coords)):
             sequence = neighbour.letter + sequence if reversed_order else sequence + neighbour.letter
             neighbour_coords = neighbour.coords
         return sequence, neighbour_coords
@@ -51,21 +103,166 @@ class AI:
         neighbours[previous_neighbour_coords] = possible_letters(pattern)
         neighbours[next_neighbour_coords] = possible_letters(pattern2)
 
-        print("")
-
     def find_vertical_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, coords_on_left, coords_on_right, self.vertical_neighbours)
 
     def find_horizontal_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, coords_above, coords_below, self.horizontal_neighbours)
 
-    def turn(self):
+    def find_new_neighbours(self):
+        first_tile_coords = None
         for tile_coords in self.latest_tiles:
-            self.find_vertical_neighbours(tile_coords)
-            self.find_horizontal_neighbours(tile_coords)
+            if tile_coords in self.vertical_neighbours:
+                del self.vertical_neighbours[tile_coords]
+            if tile_coords in self.horizontal_neighbours:
+                del self.horizontal_neighbours[tile_coords]
+            if not first_tile_coords:
+                first_tile_coords = tile_coords
+                self.find_vertical_neighbours(tile_coords)
+                self.find_horizontal_neighbours(tile_coords)
+            else:
+                if is_same_column(first_tile_coords, tile_coords):
+                    self.find_vertical_neighbours(tile_coords)
+                else:
+                    self.find_horizontal_neighbours(tile_coords)
 
-        print(self.horizontal_neighbours)
-        print(self.vertical_neighbours)
+        print('vertical')
+        for neighbour in self.horizontal_neighbours.keys():
+            print(f'{coords_to_notation(neighbour)}: {self.horizontal_neighbours.get(neighbour)}')
+        print('horizontal')
+        for neighbour in self.vertical_neighbours.keys():
+            print(f'{coords_to_notation(neighbour)}: {self.vertical_neighbours.get(neighbour)}')
+        print('-----------------------------------------------------------------------------')
+
+    def prepare_neighbours_to_check(self):
+        # TODO needs_improvement
+        self.neighbours_to_check_upwards = list(self.horizontal_neighbours.keys()) \
+                                           + list(self.vertical_neighbours.keys())
+        self.neighbours_to_check_downwards = self.neighbours_to_check_upwards[:]
+        self.neighbours_to_check_leftwards = self.neighbours_to_check_upwards[:]
+        self.neighbours_to_check_rightwards = self.neighbours_to_check_upwards[:]
+
+    # def check_neighbourhood(self, coords, word, direction):
+    #     while neighbour := self.get_tile(coords):
+    #         is_blank = neighbour.points == 0
+    #         word.add_letter(neighbour.letter, coords, False, is_blank)
+    #         coords = direction(coords)
+    #     return coords
+
+    def check_neighbourhood(self, coords, words, direction):
+        while True:
+            print(coords)
+            coords = direction(coords)
+            neighbour = self.get_tile(coords)
+            if not neighbour:
+                return coords
+            is_blank = neighbour.points == 0
+            for word in words:
+                word.add_letter(neighbour.letter, coords, False, is_blank)
+
+    # def check_neighbourhood_above(self, coords, word):
+    #     return self.check_neighbourhood(coords, word, coords_above)
+    #
+    # def check_neighbourhood_below(self, coords, word):
+    #     return self.check_neighbourhood(coords, word, coords_below)
+
+    #
+    # def check_neighbourhood_on_right(self, coords, word):
+    #     return self.check_neighbourhood(coords, word, coords_on_right)
+    #
+    # def check_neighbourhood_on_left(self, coords, word):
+    #     return self.check_neighbourhood(coords, word, coords_on_left)
+
+    def add_word(self, word):
+        if word.is_in_dictionary:
+            word.sum_up()
+            self.words.get(word.points).append(word)
+
+    def find_new_word_with_direction(self, neighbours_to_check):
+        if neighbours_to_check == self.neighbours_to_check_upwards:
+            previous_coords = coords_above
+            next_coords = coords_below
+            neighbours = self.vertical_neighbours
+            offset = 0
+        elif neighbours_to_check == self.neighbours_to_check_downwards:
+            previous_coords = coords_below
+            next_coords = coords_above
+            neighbours = self.vertical_neighbours
+            offset = 1
+        elif neighbours_to_check == self.neighbours_to_check_leftwards:
+            previous_coords = coords_on_left
+            next_coords = coords_on_right
+            neighbours = self.horizontal_neighbours
+            offset = 0
+        elif neighbours_to_check == self.neighbours_to_check_rightwards:
+            previous_coords = coords_on_right
+            next_coords = coords_on_left
+            neighbours = self.horizontal_neighbours
+            offset = 1
+        else:
+            return
+        # todo delete it
+        for current in neighbours_to_check:
+            all_words = [[] for _ in range(9)]
+            first_word = Word(self.rack, neighbours)
+            first_neighbour_coords = self.check_neighbourhood(current, [first_word], next_coords)
+            all_words[0] = [first_word]
+            for direct_level in range(1, 8):
+                all_words[direct_level] = []
+                for word in all_words[direct_level - 1]:
+                    all_words[direct_level].extend(word.generate_children(current))
+
+                if not all_words[direct_level]:
+                    break
+
+                next_neighbour_coords = first_neighbour_coords
+                previous_neighbour_coords = previous_coords(current)
+                if is_coords_valid(previous_neighbour_coords) and self.tiles.get(previous_neighbour_coords):
+                    previous_neighbour_coords = self.check_neighbourhood(current, all_words[direct_level],
+                                                                         previous_coords)
+                for word in all_words[direct_level]:
+                    self.add_word(word)
+
+                stop_value = direct_level - offset
+                if direct_level > len(self.rack) / 2:
+                    stop_value = len(self.rack) - direct_level - offset
+                for opposite_level in range(stop_value):
+                    if not is_coords_valid(next_neighbour_coords):
+                        break
+                    current = next_neighbour_coords
+                    level = direct_level + opposite_level + 1
+                    all_words[level] = []
+
+                    for word in all_words[level - 1]:
+                        all_words[level].extend(word.generate_children(current))
+
+                    next_neighbour_coords = next_coords(current)
+
+                    if self.tiles.get(next_neighbour_coords):
+                        next_neighbour_coords = self.check_neighbourhood(current, all_words[level], next_coords)
+
+                    for word in all_words[level]:
+                        self.add_word(word)
+
+                if not is_coords_valid(previous_neighbour_coords):
+                    break
+                current = previous_neighbour_coords
+
+    def find_new_words(self):
+        self.words = {}
+        for count in range(200):
+            self.words[count] = []
+        self.find_new_word_with_direction(self.neighbours_to_check_upwards)
+        self.find_new_word_with_direction(self.neighbours_to_check_downwards)
+        self.find_new_word_with_direction(self.neighbours_to_check_leftwards)
+        self.find_new_word_with_direction(self.neighbours_to_check_rightwards)
+
+    def turn(self):
+        self.find_new_neighbours()
+        self.prepare_neighbours_to_check()
+        # self.find_all_permutations()
+        self.find_new_words()
+        print('')
 
     def no_turn(self):
         print("noting")

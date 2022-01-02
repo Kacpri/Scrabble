@@ -33,6 +33,9 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
         points.setX(8)
         points.setY(8)
 
+    def __str__(self):
+        return self.letter
+
     def change_blank(self, new_letter):
         if self.letter == '_':
             self.letter = new_letter.upper()
@@ -62,7 +65,8 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
     def update_coords(self):
         x = int((self.x() - self.offset_right) / self.square_size)
         y = int((self.y() - self.offset_top) / self.square_size)
-        self.coords = f'{x}-{y}'
+        self.coords = f'{x}={y}'
+        print(self.coords)
 
     def move(self, position):
         self.setPos(position)

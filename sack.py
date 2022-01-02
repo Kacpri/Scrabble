@@ -52,10 +52,3 @@ class Sack:
         self._letters += letters_to_exchange
         return rack
 
-
-if __name__ == '__main__':
-    s = Sack()
-    r = s.draw(7)
-    print(r)
-    r = s.exchange(r, r[:3])
-    print(r)
