@@ -59,7 +59,6 @@ class Word:
             if neighbours is not None:
                 if letter.lower() not in neighbours:
                     continue
-            child = None
             if letter == '_':
                 for new_letter in Sack.values_without_blank():
                     child = self.generate_child(new_letter, position, True)
@@ -78,7 +77,7 @@ class Word:
             self.start = self.end = position
         else:
             for index in range(len(self.word)):
-                if compare_coords(position, self.positions[index]) == 1:
+                if position < self.positions[index]:
                     self.word = self.word[:index] + letter + self.word[index:]
                     self.positions.insert(index, position)
                     break

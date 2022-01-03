@@ -25,14 +25,12 @@ class AI:
         return self.tiles.get(coords)
 
     def is_opposite_vertical_neighbour(self, neighbour, another_neighbour):
-        x1, y1 = split_coords(neighbour)
-        x2, y2 = split_coords(another_neighbour)
-        if y1 == y2:
-            if x1 == x2:
+        if neighbour.y() == another_neighbour.y():
+            if neighbour.x() == another_neighbour.x():
                 return False
-            elif x2 < x1:
+            elif another_neighbour.x() < neighbour.x():
                 neighbour, another_neighbour = another_neighbour, neighbour
-            while neighbour := coords_on_right(neighbour):
+            while neighbour := neighbour.on_right():
                 if neighbour == another_neighbour:
                     return True
                 if not self.get_tile(neighbour):
@@ -40,14 +38,12 @@ class AI:
         return False
 
     def is_opposite_horizontal_neighbour(self, neighbour, another_neighbour):
-        x1, y1 = split_coords(neighbour)
-        x2, y2 = split_coords(another_neighbour)
-        if x1 == x2:
-            if y1 == y2:
+        if neighbour.x() == another_neighbour.x():
+            if neighbour.y() == another_neighbour.y():
                 return False
-            elif y2 < y1:
+            elif another_neighbour.y() < neighbour.y():
                 neighbour, another_neighbour = another_neighbour, neighbour
-            while neighbour := coords_below(neighbour):
+            while neighbour := neighbour.below():
                 if neighbour == another_neighbour:
                     return True
                 if not self.get_tile(neighbour):
@@ -104,10 +100,10 @@ class AI:
         neighbours[next_neighbour_coords] = possible_letters(pattern2)
 
     def find_vertical_neighbours(self, tile_coords):
-        self.find_neighbours(tile_coords, coords_on_left, coords_on_right, self.vertical_neighbours)
+        self.find_neighbours(tile_coords, Coords.on_left, Coords.on_right, self.vertical_neighbours)
 
     def find_horizontal_neighbours(self, tile_coords):
-        self.find_neighbours(tile_coords, coords_above, coords_below, self.horizontal_neighbours)
+        self.find_neighbours(tile_coords, Coords.above, Coords.below, self.horizontal_neighbours)
 
     def find_new_neighbours(self):
         first_tile_coords = None
@@ -121,17 +117,17 @@ class AI:
                 self.find_vertical_neighbours(tile_coords)
                 self.find_horizontal_neighbours(tile_coords)
             else:
-                if is_same_column(first_tile_coords, tile_coords):
+                if first_tile_coords.is_same_column(tile_coords):
                     self.find_vertical_neighbours(tile_coords)
                 else:
                     self.find_horizontal_neighbours(tile_coords)
 
         print('vertical')
         for neighbour in self.horizontal_neighbours.keys():
-            print(f'{coords_to_notation(neighbour)}: {self.horizontal_neighbours.get(neighbour)}')
+            print(f'{neighbour}: {self.horizontal_neighbours.get(neighbour)}')
         print('horizontal')
         for neighbour in self.vertical_neighbours.keys():
-            print(f'{coords_to_notation(neighbour)}: {self.vertical_neighbours.get(neighbour)}')
+            print(f'{neighbour}: {self.vertical_neighbours.get(neighbour)}')
         print('-----------------------------------------------------------------------------')
 
     def prepare_neighbours_to_check(self):
@@ -151,7 +147,6 @@ class AI:
 
     def check_neighbourhood(self, coords, words, direction):
         while True:
-            print(coords)
             coords = direction(coords)
             neighbour = self.get_tile(coords)
             if not neighbour:
@@ -176,27 +171,28 @@ class AI:
     def add_word(self, word):
         if word.is_in_dictionary:
             word.sum_up()
+            print(word)
             self.words.get(word.points).append(word)
 
     def find_new_word_with_direction(self, neighbours_to_check):
         if neighbours_to_check == self.neighbours_to_check_upwards:
-            previous_coords = coords_above
-            next_coords = coords_below
+            previous_coords = Coords.above
+            next_coords = Coords.below
             neighbours = self.vertical_neighbours
             offset = 0
         elif neighbours_to_check == self.neighbours_to_check_downwards:
-            previous_coords = coords_below
-            next_coords = coords_above
+            previous_coords = Coords.below
+            next_coords = Coords.above
             neighbours = self.vertical_neighbours
             offset = 1
         elif neighbours_to_check == self.neighbours_to_check_leftwards:
-            previous_coords = coords_on_left
-            next_coords = coords_on_right
+            previous_coords = Coords.on_left
+            next_coords = Coords.on_right
             neighbours = self.horizontal_neighbours
             offset = 0
         elif neighbours_to_check == self.neighbours_to_check_rightwards:
-            previous_coords = coords_on_right
-            next_coords = coords_on_left
+            previous_coords = Coords.on_right
+            next_coords = Coords.on_left
             neighbours = self.horizontal_neighbours
             offset = 1
         else:
@@ -217,7 +213,7 @@ class AI:
 
                 next_neighbour_coords = first_neighbour_coords
                 previous_neighbour_coords = previous_coords(current)
-                if is_coords_valid(previous_neighbour_coords) and self.tiles.get(previous_neighbour_coords):
+                if previous_neighbour_coords.is_valid() and self.tiles.get(previous_neighbour_coords):
                     previous_neighbour_coords = self.check_neighbourhood(current, all_words[direct_level],
                                                                          previous_coords)
                 for word in all_words[direct_level]:
@@ -227,7 +223,7 @@ class AI:
                 if direct_level > len(self.rack) / 2:
                     stop_value = len(self.rack) - direct_level - offset
                 for opposite_level in range(stop_value):
-                    if not is_coords_valid(next_neighbour_coords):
+                    if not next_neighbour_coords.is_valid():
                         break
                     current = next_neighbour_coords
                     level = direct_level + opposite_level + 1
@@ -244,7 +240,7 @@ class AI:
                     for word in all_words[level]:
                         self.add_word(word)
 
-                if not is_coords_valid(previous_neighbour_coords):
+                if not previous_neighbour_coords.is_valid():
                     break
                 current = previous_neighbour_coords
 

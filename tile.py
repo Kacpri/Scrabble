@@ -1,4 +1,5 @@
 from PyQt5 import QtCore, QtWidgets
+from coords import Coords
 
 
 class Tile(QtWidgets.QGraphicsSimpleTextItem):
@@ -65,8 +66,7 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
     def update_coords(self):
         x = int((self.x() - self.offset_right) / self.square_size)
         y = int((self.y() - self.offset_top) / self.square_size)
-        self.coords = f'{x}={y}'
-        print(self.coords)
+        self.coords = Coords(x, y)
 
     def move(self, position):
         self.setPos(position)

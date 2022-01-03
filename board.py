@@ -23,8 +23,8 @@ class Board(QGraphicsView):
         self.SCALE_MANUAL = 10
         self.SHIFT_FOCUS = QPointF(0, 0)
 
-        self._squares = {}
-        self._bonus_fields = []
+        self.squares = {}
+        self.bonus_fields = []
         self._double_word_bonuses = []
         self._triple_word_bonuses = []
         self._double_letter_bonuses = []
@@ -69,9 +69,9 @@ class Board(QGraphicsView):
             if not last:
                 last = column
 
-            while self.tiles.get(f'{first - 1}={row}'):
+            while self.tiles.get(Coords(first - 1, row)):
                 first -= 1
-            while self.tiles.get(f'{last + 1}={row}'):
+            while self.tiles.get(Coords(last + 1, row)):
                 last += 1
 
         elif direction == 'vertical':
@@ -80,9 +80,9 @@ class Board(QGraphicsView):
             if not last:
                 last = row
 
-            while self.tiles.get(f'{column}={first - 1}'):
+            while self.tiles.get(Coords(column, first - 1)):
                 first -= 1
-            while self.tiles.get(f'{column}={last + 1}'):
+            while self.tiles.get(Coords(column, last + 1)):
                 last += 1
 
         if first == last:
@@ -91,9 +91,9 @@ class Board(QGraphicsView):
         for current in range(first, last + 1):
             coords = None
             if direction == 'horizontal':
-                coords = f'{current}={row}'
+                coords = Coords(current, row)
             elif direction == 'vertical':
-                coords = f'{column}={current}'
+                coords = Coords(column, current)
 
             tile = self.tiles.get(coords)
             if not tile:
@@ -131,11 +131,11 @@ class Board(QGraphicsView):
             print('Musisz najpierw wykonać ruch')
             return
 
-        if not self.tiles.get('7=7'):
+        if not self.tiles.get(Coords(7, 7)):
             print('Pierwszy wyraz musi przechodzić przez środek')
             return
 
-        if self.latest_tiles.get('7=7'):
+        if self.latest_tiles.get(Coords(7, 7)):
             self._is_connected = True
 
         for tile_coords in self.latest_tiles:
@@ -144,7 +144,7 @@ class Board(QGraphicsView):
                 new_letter = input("Jaką literą ma być blank?").upper()
                 if new_letter in sack.Sack.values:
                     tile.change_blank(new_letter)
-            x, y = split_coords(tile_coords)
+            x, y = tile_coords.get()
             if not column and not row:
                 column, row = x, y
             elif column and row:
@@ -204,7 +204,7 @@ class Board(QGraphicsView):
         self.latest_tiles.clear()
 
     def on_tile_move(self, tile):
-        x, y = split_coords(tile.coords)
+        x, y = tile.coords.get()
 
         if y == 15 or y == 16 and not 3 < x < 12:
             tile.undo_move()
@@ -215,12 +215,12 @@ class Board(QGraphicsView):
             self.tiles[tile.coords] = tile
             self.tiles[other_tile.coords] = other_tile
 
-            if is_coords_of_rack(tile.coords):
+            if tile.coords.is_in_rack():
                 self._tiles_in_rack[tile.coords] = tile
             else:
                 self.latest_tiles[tile.coords] = tile
 
-            if is_coords_of_rack(other_tile.coords):
+            if other_tile.coords.is_in_rack():
                 self._tiles_in_rack[other_tile.coords] = other_tile
             else:
                 self.latest_tiles[other_tile.coords] = other_tile
@@ -229,17 +229,17 @@ class Board(QGraphicsView):
             tile.undo_move()
             return
         else:
-            if y != 16 and tile.old_coords.split('=')[1] == '16':
+            if y != 16 and tile.old_coords.y() == '16':
                 self._rack.remove(tile.letter)
             del self.tiles[tile.old_coords]
             self.tiles[tile.coords] = tile
 
-            if is_coords_of_rack(tile.coords):
+            if tile.coords.is_in_rack():
                 self._tiles_in_rack[tile.coords] = tile
             else:
                 self.latest_tiles[tile.coords] = tile
 
-            if is_coords_of_rack(tile.old_coords):
+            if tile.old_coords.is_in_rack():
                 del self._tiles_in_rack[tile.old_coords]
             else:
                 del self.latest_tiles[tile.old_coords]
@@ -261,16 +261,16 @@ class Board(QGraphicsView):
             for column in range(self.COLUMNS):
                 square = self.add_square(row, column, pen, brush)
 
-                self._squares[f"{row}={column}"] = square
+                self.squares[Coords(row + 1, column + 1)] = square
 
     def build_bonus_fields(self):
-        for bonus_field in self._bonus_fields:
+        for bonus_field in self.bonus_fields:
             brush = bonus_field["Brush"]
             pen = None
             bonus_fields = []
 
             for position in bonus_field["Positions"]:
-                square = self._squares[position]
+                square = self.squares[position]
                 bonus_fields.append(square)
 
             paint_graphic_items(bonus_fields, pen, brush)
@@ -284,7 +284,7 @@ class Board(QGraphicsView):
 
     def add_letters_to_rack(self):
         for column in range(4, 12):
-            coords = f"{column}=16"
+            coords = Coords(column, 16)
             if not self.tiles.get(coords) and len(self._tiles_in_rack) < 7:
                 letter = self.sack.draw_one()
                 self._rack.append(letter)
@@ -335,7 +335,7 @@ class Board(QGraphicsView):
             "Positions": triple_word_bonus_coords
         }
         self._triple_word_bonuses = triple_word_bonus_coords
-        self._bonus_fields.append(triple_word_bonuses)
+        self.bonus_fields.append(triple_word_bonuses)
 
         double_word_brush = QBrush(QColor(255, 0, 0, 100))
 
@@ -345,7 +345,7 @@ class Board(QGraphicsView):
             "Positions": double_word_bonus_coords
         }
         self._double_word_bonuses = double_word_bonus_coords
-        self._bonus_fields.append(double_word_bonuses)
+        self.bonus_fields.append(double_word_bonuses)
 
         triple_letter_brush = QBrush(QColor(0, 0, 255, 180))
 
@@ -355,7 +355,7 @@ class Board(QGraphicsView):
             "Positions": triple_letter_bonus_coords
         }
         self._triple_letter_bonuses = triple_letter_bonus_coords
-        self._bonus_fields.append(triple_letter_bonuses)
+        self.bonus_fields.append(triple_letter_bonuses)
 
         double_letter_brush = QBrush(QColor(0, 0, 255, 100))
 
@@ -365,7 +365,4 @@ class Board(QGraphicsView):
             "Positions": double_letter_bonus_coords
         }
         self._double_letter_bonuses = double_letter_bonus_coords
-        self._bonus_fields.append(double_letter_bonuses)
-
-
-
+        self.bonus_fields.append(double_letter_bonuses)
