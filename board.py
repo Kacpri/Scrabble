@@ -121,14 +121,6 @@ class Board(QGraphicsView):
         self._points += word_points * word_multiplier
 
     def end_turn(self):
-        ai_score = self.ai.turn()
-        self.score.add_points('AI', ai_score)
-        self.turn += 1
-
-        self.latest_tiles.clear()
-
-        return
-
         column = row = None
         columns = []
         rows = []
