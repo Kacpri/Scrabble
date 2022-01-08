@@ -7,8 +7,9 @@ class Sack:
               'F': 5, 'Ó': 5, 'Ś': 5, 'Ż': 5, 'Ć': 6, 'Ń': 7, 'Ź': 9, '_': 0}
 
     def __init__(self):
+        # todo add back the blank
         self._letters = ['A'] * 9 + ['I'] * 8 + ['E'] * 7 + ['O'] * 6 + ['N', 'Z'] * 5 + ['R', 'S', 'W', 'Y'] * 4 + \
-                        ['C', 'D', 'K', 'L', 'M', 'P', 'T'] * 3 + ['B', 'D', 'H', 'J', 'Ł', 'U', '_'] * 2 + \
+                        ['C', 'D', 'K', 'L', 'M', 'P', 'T'] * 3 + ['B', 'D', 'H', 'J', 'Ł', 'U'] * 2 + \
                         ['Ą', 'Ę', 'Ć', 'F', 'Ń', 'Ó', 'Ś', 'Ź', 'Ż']
 
     @staticmethod
@@ -51,4 +52,3 @@ class Sack:
         rack += drawn
         self._letters += letters_to_exchange
         return rack
-

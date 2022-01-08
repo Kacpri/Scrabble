@@ -1,8 +1,12 @@
 class Coords:
     @classmethod
+    def central(cls):
+        return Coords(7, 7)
+
+    @classmethod
     def from_notation(cls, notation):
-        x = ord(notation[0]) - ord('A') + 1
-        y = int(notation[1:])
+        x = ord(notation[0]) - ord('A')
+        y = int(notation[1:]) - 1
         return Coords(x, y)
 
     def __init__(self, x, y):
@@ -10,8 +14,8 @@ class Coords:
         self._y = y
 
     def __str__(self):
-        x = chr(ord('A') + self._x - 1)
-        return f'{x}{self._y}'
+        x = chr(ord('A') + self._x)
+        return f'{x}{self._y + 1}'
 
     def __hash__(self):
         return hash(self._x * 15 + self._y - 1)

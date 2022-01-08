@@ -2,12 +2,12 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-import sack
+from dictionary import *
 from sack import Sack
 from tile import Tile
 from board_utils import *
-from dictionary import is_word_in_dictionary
 from ai import AI
+import threading
 
 
 class Board(QGraphicsView):
@@ -37,6 +37,8 @@ class Board(QGraphicsView):
         self._words = []
         self._is_connected = False
 
+        self.turn = 0
+
         # parameters visible for AI
         # score represents total score of both players
         self.score = score
@@ -46,17 +48,14 @@ class Board(QGraphicsView):
         self.tiles = {}
         # sack represents sack
         self.sack = Sack()
-        self.ai = AI(self.latest_tiles, self.tiles, self.sack)
 
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
+        load_data()
         self.setScene(self.scene)
 
-    # def wheelEvent(self, event):
-    #     delta = event.angleDelta()
-    #     self.deltaF = 1 + float(delta.y() / 1200)
-    #     self.scale(self.deltaF, self.deltaF)
+        self.ai = AI(self.scene, self.latest_tiles, self.tiles, self.sack)
 
     def add_word_and_points(self, column, row, direction, first=None, last=None):
         word = ''
@@ -122,6 +121,14 @@ class Board(QGraphicsView):
         self._points += word_points * word_multiplier
 
     def end_turn(self):
+        ai_score = self.ai.turn()
+        self.score.add_points('AI', ai_score)
+        self.turn += 1
+
+        self.latest_tiles.clear()
+
+        return
+
         column = row = None
         columns = []
         rows = []
@@ -140,9 +147,9 @@ class Board(QGraphicsView):
 
         for tile_coords in self.latest_tiles:
             tile = self.latest_tiles.get(tile_coords)
-            if tile.letter == '_':
+            if tile.letter == BLANK:
                 new_letter = input("Jaką literą ma być blank?").upper()
-                if new_letter in sack.Sack.values:
+                if new_letter in Sack.values:
                     tile.change_blank(new_letter)
             x, y = tile_coords.get()
             if not column and not row:
@@ -200,7 +207,10 @@ class Board(QGraphicsView):
 
         self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
-        self.ai.turn()
+        ai_score = self.ai.turn()
+        self.score.add_points('AI', ai_score)
+        self.turn += 1
+
         self.latest_tiles.clear()
 
     def on_tile_move(self, tile):
@@ -260,17 +270,17 @@ class Board(QGraphicsView):
         for row in range(self.ROWS):
             for column in range(self.COLUMNS):
                 square = self.add_square(row, column, pen, brush)
-
-                self.squares[Coords(row + 1, column + 1)] = square
+                self.squares[Coords(row, column)] = square
 
     def build_bonus_fields(self):
         for bonus_field in self.bonus_fields:
             brush = bonus_field["Brush"]
-            pen = None
+            pen = bonus_field["Pen"]
             bonus_fields = []
 
             for position in bonus_field["Positions"]:
                 square = self.squares[position]
+                square.setZValue(2)
                 bonus_fields.append(square)
 
             paint_graphic_items(bonus_fields, pen, brush)
@@ -328,40 +338,37 @@ class Board(QGraphicsView):
 
     def create_bonus_fields(self):
 
-        triple_word_brush = QBrush(QColor(255, 0, 0, 180))
         triple_word_bonuses = {
             "Name": "triple word",
-            "Brush": triple_word_brush,
+            "Pen": QPen(Qt.darkRed, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(QColor(255, 0, 0, 180)),
             "Positions": triple_word_bonus_coords
         }
         self._triple_word_bonuses = triple_word_bonus_coords
         self.bonus_fields.append(triple_word_bonuses)
 
-        double_word_brush = QBrush(QColor(255, 0, 0, 100))
-
         double_word_bonuses = {
             "Name": "double word",
-            "Brush": double_word_brush,
+            "Pen": QPen(Qt.red, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(QColor(255, 0, 0, 100)),
             "Positions": double_word_bonus_coords
         }
         self._double_word_bonuses = double_word_bonus_coords
         self.bonus_fields.append(double_word_bonuses)
 
-        triple_letter_brush = QBrush(QColor(0, 0, 255, 180))
-
         triple_letter_bonuses = {
             "Name": "triple letter",
-            "Brush": triple_letter_brush,
+            "Pen": QPen(Qt.darkBlue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(QColor(0, 0, 255, 180)),
             "Positions": triple_letter_bonus_coords
         }
         self._triple_letter_bonuses = triple_letter_bonus_coords
         self.bonus_fields.append(triple_letter_bonuses)
 
-        double_letter_brush = QBrush(QColor(0, 0, 255, 100))
-
         double_letter_bonuses = {
             "Name": "double letter",
-            "Brush": double_letter_brush,
+            "Pen": QPen(Qt.blue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(QColor(0, 0, 255, 100)),
             "Positions": double_letter_bonus_coords
         }
         self._double_letter_bonuses = double_letter_bonus_coords

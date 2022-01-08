@@ -1,6 +1,8 @@
 from itertools import permutations
 from sack import Sack
 
+BLANK = '_'
+
 
 def prepare_data(text):
     words = [set() for _ in range(16)]
@@ -10,27 +12,37 @@ def prepare_data(text):
 
 
 def words_reader(file_name):
-    file = open(file_name, "r", encoding='utf-8')
+    try:
+        file = open(file_name, "r", encoding='utf-8')
+    except FileNotFoundError:
+        return
     file_content = file.read()
     file.close()
     return file_content
 
 
-data = words_reader('slowa.txt')
+filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
+data = words_reader('text files/words.txt')
 dictionary = prepare_data(data)
-data = words_reader('czworki.txt')
-quads = []
-for quad in data.split('\n'):
-    quads.append(quad)
+quads = None
+
+
+def load_data():
+    content = words_reader('text files/quads.txt')
+    if content:
+        global quads
+        quads = []
+        for quad in content.split('\n'):
+            quads.append(quad)
 
 
 def is_word_in_dictionary(word):
     word = word.lower()
-    if '_' in word:
+    if BLANK in word:
         for letter in Sack.values_without_blank():
             letter = letter.lower()
-            new_word = word.replace("_", letter, 1)
-            if '_' in new_word:
+            new_word = word.replace(BLANK, letter, 1)
+            if BLANK in new_word:
                 if is_word_in_dictionary(new_word):
                     return True
             elif new_word in dictionary[len(word)]:
@@ -46,13 +58,13 @@ def is_in_quads(word):
 
 def possible_words_with_blank(word, find_letters=False):
     word = word.lower()
-    if '_' not in word:
+    if BLANK not in word:
         return word
     words = []
     for letter in Sack.values_without_blank():
         letter = letter.lower()
-        new_word = word.replace("_", letter, 1)
-        if '_' in new_word:
+        new_word = word.replace(BLANK, letter, 1)
+        if BLANK in new_word:
             words.extend(possible_words_with_blank(new_word))
         elif new_word in dictionary[len(word)]:
             words.append(letter if find_letters else new_word)
@@ -101,10 +113,9 @@ def find_groups(length):
 
 
 def install():
-    filenames = ["trojki.txt", "czworki.txt", "piatki.txt", "szostki.txt", "siodemki.txt"]
-    for count in range(5):
-        file = open(filenames[count], "w", encoding='utf-8')
-        groups = find_groups(count + 3)
+    for count in range(len(filenames)):
+        file = open("text files/" + filenames[count], "w", encoding='utf-8')
+        groups = find_groups(count + 4)
         for group in sorted(groups):
             file.write(f'{group}\n')
 

@@ -1,22 +1,26 @@
-from PyQt5 import QtCore, QtWidgets
+from PyQt5.QtWidgets import *
+from PyQt5.QtCore import *
+
 from coords import Coords
 
 
-class Tile(QtWidgets.QGraphicsSimpleTextItem):
-    def __init__(self, letter, points, position, on_position_change, parent=None):
-        QtWidgets.QGraphicsSimpleTextItem.__init__(self, parent)
-        self.on_position_change = on_position_change
+class Tile(QGraphicsSimpleTextItem):
+    def __init__(self, letter, points, position, on_position_change=None, parent=None):
+        QGraphicsSimpleTextItem.__init__(self, parent)
+        if on_position_change:
+            self.on_position_change = on_position_change
 
-        self.setFlag(QtWidgets.QGraphicsItem.ItemIsMovable, True)
-        self.setFlag(QtWidgets.QGraphicsItem.ItemSendsGeometryChanges, True)
+        self.setFlag(QGraphicsItem.ItemIsMovable, True)
+        self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
         self.points = points
         self.letter = letter
 
         self.offset_top = 22
         self.offset_right = 30
         self.square_size = 40
+        self.setZValue(3)
 
-        self.move_restrict_rect = QtCore.QRectF(30, 30, 570, 660)
+        self.move_restrict_rect = QRectF(30, 30, 570, 660)
 
         self.setText(letter)
         self.setScale(2.5)
@@ -29,7 +33,7 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
         self.old_coords = None
 
         # self.setFont(QtGui.QFont())
-        points = QtWidgets.QGraphicsSimpleTextItem(str(self.points), self)
+        points = QGraphicsSimpleTextItem(str(self.points), self)
         points.setScale(0.5)
         points.setX(8)
         points.setY(8)
@@ -45,11 +49,11 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
     def mousePressEvent(self, event):
         self.old_position = self.pos()
         self.old_coords = self.coords
-        QtWidgets.QGraphicsSimpleTextItem.mousePressEvent(self, event)
+        QGraphicsSimpleTextItem.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
         if self.move_restrict_rect.contains(event.scenePos()):
-            QtWidgets.QGraphicsSimpleTextItem.mouseMoveEvent(self, event)
+            QGraphicsSimpleTextItem.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         current_position = self.pos()
@@ -61,7 +65,7 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
 
         if current_position.x() is not self.x() or current_position.y() is not self.y():
             self.on_position_change(self)
-        QtWidgets.QGraphicsSimpleTextItem.mouseReleaseEvent(self, event)
+        QGraphicsSimpleTextItem.mouseReleaseEvent(self, event)
 
     def update_coords(self):
         x = int((self.x() - self.offset_right) / self.square_size)
@@ -80,4 +84,9 @@ class Tile(QtWidgets.QGraphicsSimpleTextItem):
         other.move(self.old_position)
 
     def set_immovable(self):
-        self.setFlag(QtWidgets.QGraphicsItem.ItemIsMovable, False)
+        self.setFlag(QGraphicsItem.ItemIsMovable, False)
+
+    # def paint(self, painter, option, widget):
+    #     painter.setBrush(QBrush(Qt.gray))
+    #     painter.drawRect(QRectF(-2, 1, 14, 14))
+    #     QGraphicsSimpleTextItem.paint(self, painter, option, widget)

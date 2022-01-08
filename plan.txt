@@ -1,22 +1,31 @@
-1. Przygotowanie danych
-2. Przygotowanie planszy
-3. Odczytywanie punktów przyczepu
-4. Wyszukiwanie słów
-5. Algorytm minimax
-6. Typowanie najlepszego słowa
-
-wykrywanie słów
+ZROBIONE
+Plansza
+Słowniki
+układanie słów
 sprawdzanie, czy pierwsze słowo przechodzi przez środek
 sprawdzanie, czy nowe słowo przylega
 obliczanie punktów
 weryfikacja słów
-
-Jak ai widzi planszę?
-Jak znajduje słowa?
-Jak wybiera słowo?
-Jak układa słowo?
-
+wymiana liter (bez GUI)
+wyszukiwanie słów przez AI
 Tablica wyników
-wymiana liter
+wymiana blanka (bez GUI)
+README.md
+
+
+DO ZROBIENIA
+doliczenie liter spoza głównego słowa (AI)
+ograniczenie liczby sąsiadów (w celu uniknięcia powtórzonych słów)
+wybór litery za blank - GUI
+wymiana liter - GUI
+testowanie wydajności z użyciem piątek, szóstek i siódemek
+Minmax - wybór najlepszego słowa pod względem taktycznym
 komunikaty
+PRACA PISEMNA
+
+dostosowanie języka do standardów
+dokumentacja
+
+jeśli sąsiad wyszukuje prostopadle, to offset + 1
+
 
