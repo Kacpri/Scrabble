@@ -39,15 +39,9 @@ class Sack:
         for letter in letters_to_remove:
             self._letters.remove(letter)
 
-    def exchange(self, rack, letters_to_exchange):
-        if not letters_to_exchange:
-            return rack
+    def exchange(self, letters_to_exchange):
         if len(letters_to_exchange) > len(self._letters):
-            return rack
-
-        for letter in letters_to_exchange:
-            rack.remove(letter)
+            return None
         drawn = self.draw(len(letters_to_exchange))
-        rack += drawn
-        self._letters += letters_to_exchange
-        return rack
+        self._letters.extend(letters_to_exchange)
+        return drawn

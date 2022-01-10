@@ -24,16 +24,16 @@ def words_reader(file_name):
 filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
 data = words_reader('text files/words.txt')
 dictionary = prepare_data(data)
-quads = None
+groups = {}
 
 
 def load_data():
-    content = words_reader('text files/quads.txt')
-    if content:
-        global quads
-        quads = []
-        for quad in content.split('\n'):
-            quads.append(quad)
+    for index in range(4):
+        content = words_reader('text files/' + filenames[index])
+        if content:
+            groups[index + 4] = []
+            for group in content.split('\n'):
+                groups[index + 4].append(group)
 
 
 def is_word_in_dictionary(word):
@@ -52,8 +52,10 @@ def is_word_in_dictionary(word):
     return False
 
 
-def is_in_quads(word):
-    return word.lower() in quads
+def is_in_group(word, length):
+    if not 4 <= length <= 7:
+        return False
+    return word.lower() in groups[length]
 
 
 def possible_words_with_blank(word, find_letters=False):

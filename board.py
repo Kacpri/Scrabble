@@ -7,11 +7,12 @@ from sack import Sack
 from tile import Tile
 from board_utils import *
 from ai import AI
+import random
 import threading
 
 
 class Board(QGraphicsView):
-    def __init__(self, score):
+    def __init__(self, score, player_clock, ai_clock, set_comment):
         QGraphicsView.__init__(self)
 
         self.ROWS = 15
@@ -30,14 +31,14 @@ class Board(QGraphicsView):
         self._double_letter_bonuses = []
         self._triple_letter_bonuses = []
 
-        self._tiles_in_rack = {}
-        self._rack = []
+        self.tiles_in_rack = {}
+        self.tiles_to_exchange = {}
         self._total_points = 0
         self._points = 0
         self._words = []
         self._is_connected = False
 
-        self.turn = 0
+        self.is_ai_turn = None
 
         # parameters visible for AI
         # score represents total score of both players
@@ -54,8 +55,139 @@ class Board(QGraphicsView):
         self.build_board_scene()
         load_data()
         self.setScene(self.scene)
+        self.player_clock = player_clock
+        self.ai_clock = ai_clock
+        self.set_comment = set_comment
 
         self.ai = AI(self.scene, self.latest_tiles, self.tiles, self.sack)
+
+    def start_game(self):
+        self.is_ai_turn = bool(random.getrandbits(1))
+        self.add_letters_to_rack()
+        self.player_clock.start()
+        return self.is_ai_turn
+
+    def add_letters_to_rack(self, letters=None):
+        if not letters:
+            letters = self.sack.draw(7 - len(self.tiles_in_rack))
+        index = 0
+        for column in range(4, 12):
+            coords = Coords(column, 16)
+            if not self.tiles.get(coords) and len(self.tiles_in_rack) < 7:
+                letter = letters[index]
+                index += 1
+
+                position = QPointF(column * 40.0 + 30, 16 * 40.0 + 22)
+                points = Sack.values.get(letter)
+                tile = Tile(letter, points, position, self.on_tile_move)
+                self.scene.addItem(tile)
+                self.tiles_in_rack[coords] = tile
+                self.tiles[coords] = tile
+
+    def exchange_letters(self):
+        letters_to_exchange = []
+        for tile in self.tiles_to_exchange.values():
+            letters_to_exchange.append(tile.letter)
+            del self.tiles[tile.coords]
+            self.scene.removeItem(tile)
+        new_letters = self.sack.exchange(letters_to_exchange)
+        self.tiles_to_exchange.clear()
+        self.add_letters_to_rack(new_letters)
+
+    def resign(self):
+        pass
+
+    def end_turn(self):
+        if self.is_ai_turn:
+            self.information.setText('Ruch przeciwnika')
+            return
+
+        column = row = -1
+        columns = []
+        rows = []
+        self._is_connected = True
+
+        if not self.tiles or not self.latest_tiles:
+            self.set_comment('Musisz najpierw wykonać ruch')
+            return
+
+        if not self.tiles.get(Coords.central()):
+            self.set_comment('Pierwszy wyraz musi przechodzić przez środek')
+            return
+
+        if self.latest_tiles.get(Coords.central()):
+            self._is_connected = True
+
+        for tile_coords in self.latest_tiles:
+            tile = self.latest_tiles.get(tile_coords)
+            if tile.letter == BLANK:
+                new_letter = input("Jaką literą ma być blank?").upper()
+                if new_letter in Sack.values:
+                    tile.change_blank(new_letter)
+            x, y = tile_coords.get()
+            if column < 0 and row < 0:
+                column, row = x, y
+            elif column and row:
+                if row == y:
+                    column = -1
+                    rows = None
+                elif column == x:
+                    row = -1
+                    columns = None
+                else:
+                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
+                    return
+            if column >= 0:
+                if column == x:
+                    rows.append(y)
+                else:
+                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
+                    return
+            if row >= 0:
+                if row == y:
+                    columns.append(x)
+                else:
+                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
+                    return
+
+        self._words = []
+        self._points = 0
+
+        if rows:
+            self.add_word_and_points(column, rows[0], 'vertical', min(rows), max(rows))
+
+            for row in rows:
+                self.add_word_and_points(column, row, 'horizontal')
+
+        elif columns:
+            self.add_word_and_points(columns[0], row, 'horizontal', min(columns), max(columns))
+
+            for column in columns:
+                self.add_word_and_points(column, row, 'vertical')
+
+        if not self._is_connected:
+            self.set_comment('Wyraz musi się stykać z występującymi już na planszy')
+            return
+
+        for word in self._words:
+            if not is_word_in_dictionary(word):
+                self.set_comment(f'słowo {word} nie występuje w słowniku')
+                return
+
+        for tile_coords in self.latest_tiles.values():
+            tile_coords.set_immovable()
+
+        print(self._words)
+        print(self._points)
+
+        self.score.add_points('Gracz', self._points)
+        self.add_letters_to_rack()
+        self.is_ai_turn = not self.is_ai_turn
+        self.ai.run()
+        # self.score.add_points('AI', ai_score)
+        self.is_ai_turn = not self.is_ai_turn
+
+        self.latest_tiles.clear()
 
     def add_word_and_points(self, column, row, direction, first=None, last=None):
         word = ''
@@ -96,7 +228,7 @@ class Board(QGraphicsView):
 
             tile = self.tiles.get(coords)
             if not tile:
-                print("some mistake")
+                self.set_comment("some mistake")
                 return
 
             if not self.latest_tiles.get(coords):
@@ -120,138 +252,74 @@ class Board(QGraphicsView):
         self._words.append(word)
         self._points += word_points * word_multiplier
 
-    def end_turn(self):
-        column = row = None
-        columns = []
-        rows = []
-        self._is_connected = True
+    def swap_tiles(self, tile, other_tile):
+        tile.swap_with_other(other_tile)
+        self.tiles[tile.coords] = tile
+        self.tiles[other_tile.coords] = other_tile
 
-        if not self.tiles or not self.latest_tiles:
-            print('Musisz najpierw wykonać ruch')
-            return
+        if tile.coords in self.latest_tiles:
+            self.latest_tiles[tile.coords] = tile
 
-        if not self.tiles.get(Coords(7, 7)):
-            print('Pierwszy wyraz musi przechodzić przez środek')
-            return
+        elif tile.coords in self.tiles_in_rack:
+            self.tiles_in_rack[tile.coords] = tile
 
-        if self.latest_tiles.get(Coords(7, 7)):
-            self._is_connected = True
+        elif tile.coords in self.tiles_to_exchange:
+            self.tiles_to_exchange[tile.coords] = tile
 
-        for tile_coords in self.latest_tiles:
-            tile = self.latest_tiles.get(tile_coords)
-            if tile.letter == BLANK:
-                new_letter = input("Jaką literą ma być blank?").upper()
-                if new_letter in Sack.values:
-                    tile.change_blank(new_letter)
-            x, y = tile_coords.get()
-            if not column and not row:
-                column, row = x, y
-            elif column and row:
-                if row == y:
-                    column = rows = None
-                elif column == x:
-                    row = columns = None
-                else:
-                    print('Wyrazy muszą być ułożone w jednej linii')
-                    return
-            if column:
-                if column == x:
-                    rows.append(y)
-                else:
-                    print('Wyrazy muszą być ułożone w jednej linii')
-                    return
-            if row:
-                if row == y:
-                    columns.append(x)
-                else:
-                    print('Wyrazy muszą być ułożone w jednej linii')
-                    return
+        if other_tile.coords in self.latest_tiles:
+            self.latest_tiles[other_tile.coords] = other_tile
 
-        self._words = []
-        self._points = 0
+        elif other_tile.coords in self.tiles_in_rack:
+            self.tiles_in_rack[other_tile.coords] = other_tile
 
-        if rows:
-            self.add_word_and_points(column, rows[0], 'vertical', min(rows), max(rows))
-
-            for row in rows:
-                self.add_word_and_points(column, row, 'horizontal')
-
-        elif columns:
-            self.add_word_and_points(columns[0], row, 'horizontal', min(columns), max(columns))
-
-            for column in columns:
-                self.add_word_and_points(column, row, 'vertical')
-
-        if not self._is_connected:
-            print('Wyraz musi się stykać z występującymi już na planszy')
-            return
-
-        for word in self._words:
-            if not is_word_in_dictionary(word):
-                print(f'słowo {word} nie występuje w słowniku')
-                return
-
-        for tile_coords in self.latest_tiles.values():
-            tile_coords.set_immovable()
-
-        print(self._words)
-        print(self._points)
-
-        self.score.add_points('Gracz', self._points)
-        self.add_letters_to_rack()
-        ai_score = self.ai.turn()
-        self.score.add_points('AI', ai_score)
-        self.turn += 1
-
-        self.latest_tiles.clear()
+        elif other_tile.coords in self.tiles_to_exchange:
+            self.tiles_in_rack[other_tile.coords] = other_tile
 
     def on_tile_move(self, tile):
         x, y = tile.coords.get()
 
-        if y == 15 or y == 16 and not 3 < x < 12:
+        if y == 15 or y in (16, 17) and not 2 < x < 12:
             tile.undo_move()
             return
-        elif other_tile := self.latest_tiles.get(tile.coords):
-            tile.swap_with_other(other_tile)
 
-            self.tiles[tile.coords] = tile
-            self.tiles[other_tile.coords] = other_tile
+        other_tile = None
+        dicts_to_check = [self.latest_tiles, self.tiles_in_rack, self.tiles_to_exchange]
+        for dict_to_check in dicts_to_check:
+            if tile.coords in dict_to_check:
+                other_tile = dict_to_check.get(tile.coords)
+                break
 
-            if tile.coords.is_in_rack():
-                self._tiles_in_rack[tile.coords] = tile
-            else:
-                self.latest_tiles[tile.coords] = tile
-
-            if other_tile.coords.is_in_rack():
-                self._tiles_in_rack[other_tile.coords] = other_tile
-            else:
-                self.latest_tiles[other_tile.coords] = other_tile
+        if other_tile:
+            self.swap_tiles(tile, other_tile)
 
         elif self.tiles.get(tile.coords):
             tile.undo_move()
             return
+
         else:
-            if y != 16 and tile.old_coords.y() == '16':
-                self._rack.remove(tile.letter)
             del self.tiles[tile.old_coords]
-            self.tiles[tile.coords] = tile
+            if tile.old_coords.y() == 16:
+                del self.tiles_in_rack[tile.old_coords]
 
-            if tile.coords.is_in_rack():
-                self._tiles_in_rack[tile.coords] = tile
-            else:
-                self.latest_tiles[tile.coords] = tile
+            elif tile.old_coords.y() == 17:
+                del self.tiles_to_exchange[tile.old_coords]
 
-            if tile.old_coords.is_in_rack():
-                del self._tiles_in_rack[tile.old_coords]
             else:
                 del self.latest_tiles[tile.old_coords]
-        if y == 16 and 3 < x < 12:
-            self._rack.append(tile.letter)
+
+            self.tiles[tile.coords] = tile
+            if y == 16:
+                self.tiles_in_rack[tile.coords] = tile
+            elif y == 17:
+                self.tiles_to_exchange[tile.coords] = tile
+            else:
+                self.latest_tiles[tile.coords] = tile
 
     def build_board_scene(self):
         self.build_squares()
         self.build_bonus_fields()
         self.build_rack()
+        self.build_exchange_zone()
         self.build_labels()
 
     def build_squares(self):
@@ -282,21 +350,17 @@ class Board(QGraphicsView):
         pen = QPen(Qt.black, 1, Qt.SolidLine)
         for column in range(4, 12):
             self.add_square(16, column, pen, brush)
-        self.add_letters_to_rack()
 
-    def add_letters_to_rack(self):
+    def build_exchange_zone(self):
+        brush = QBrush(Qt.white)
+        pen = QPen(Qt.black, 1, Qt.SolidLine)
         for column in range(4, 12):
-            coords = Coords(column, 16)
-            if not self.tiles.get(coords) and len(self._tiles_in_rack) < 7:
-                letter = self.sack.draw_one()
-                self._rack.append(letter)
+            self.add_square(17, column, pen, brush)
 
-                position = QPointF(column * 40.0 + 30, 16 * 40.0 + 22)
-                points = Sack.values.get(letter)
-                tile = Tile(letter, points, position, self.on_tile_move)
-                self.scene.addItem(tile)
-                self._tiles_in_rack[coords] = tile
-                self.tiles[coords] = tile
+        position = QPointF(64, 712)
+        label = QGraphicsSimpleTextItem('Litery do wymiany →')
+        label.setPos(position)
+        self.scene.addItem(label)
 
     def add_square(self, row, column, pen, brush):
         height = self.SIZE * self.SCALE_MANUAL

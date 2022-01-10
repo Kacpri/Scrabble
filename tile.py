@@ -20,7 +20,7 @@ class Tile(QGraphicsSimpleTextItem):
         self.square_size = 40
         self.setZValue(3)
 
-        self.move_restrict_rect = QRectF(30, 30, 570, 660)
+        self.move_restrict_rect = QRectF(30, 30, 570, 690)
 
         self.setText(letter)
         self.setScale(2.5)

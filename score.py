@@ -1,10 +1,13 @@
-class Score(object):
-    def __init__(self, players):
-        self._last_score = 10.0
+class Score:
+    def __init__(self):
+        self._last_score = 0
+        self._players_score = {}
+        self._observers = []
+
+    def set_players(self, players):
         self._players_score = {}
         for player in players:
             self._players_score[player] = []
-        self._observers = []
 
     def add_points(self, player, points):
         player_score = self._players_score[player]
@@ -14,8 +17,15 @@ class Score(object):
         self.last_score = new_score
 
     def get_player_names(self):
-
+        if not self._players_score:
+            return ['Gracz', 'AI']
         return list(self._players_score)
+
+    def swap_players(self):
+        swapped = {}
+        for player in reversed(self._players_score):
+            swapped[player] = []
+        self._players_score = swapped
 
     @property
     def last_score(self):

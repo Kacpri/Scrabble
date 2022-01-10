@@ -30,12 +30,20 @@ class Word:
         return self.word
 
     def check_beginning(self):
-        if len(self.word) >= 4:
-            self.is_valid = is_in_quads(self.word[:4])
+        length = len(self.word)
+        if length < 4:
+            return
+        if length > 7:
+            length = 7
+        self.is_valid = is_in_group(self.word[:length], length)
 
     def check_end(self):
-        if len(self.word) >= 4:
-            self.is_valid = is_in_quads(self.word[-4:])
+        length = len(self.word)
+        if length < 4:
+            return
+        if length > 7:
+            length = 7
+        self.is_valid = is_in_group(self.word[-length:], length)
 
     def is_in_dictionary(self):
         return is_word_in_dictionary(self.word)
@@ -64,6 +72,8 @@ class Word:
                 extra_points = neighbours[1]
             if letter == BLANK:
                 for new_letter in Sack.values_without_blank():
+                    if new_letter in self.rack:
+                        continue
                     child = self.generate_child(new_letter, position, extra_points, True)
                     if child:
                         children.append(child)

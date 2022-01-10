@@ -13,7 +13,7 @@ class TableView(QTableWidget):
         self.data = data
         self.data.bind_to(self.add_value)
         self.count = 0
-        self.set_headers()
+        # self.set_headers()
         self.init_rows()
 
     def set_headers(self):
