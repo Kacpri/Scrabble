@@ -15,7 +15,7 @@ class Sack:
     def values_without_blank():
         return list(Sack.values.keys())[:-1]
 
-    def draw(self, quantity):
+    def draw(self, quantity=7):
         if not self._letters:
             return None
         elif len(self._letters) < quantity:

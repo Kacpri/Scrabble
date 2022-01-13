@@ -1,3 +1,5 @@
+import threading
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -7,19 +9,17 @@ from sack import Sack
 from tile import Tile
 from board_utils import *
 from ai import AI
+import time
 import random
-import threading
 
 
 class Board(QGraphicsView):
-    def __init__(self, score, player_clock, ai_clock, set_comment):
+    def __init__(self, score, player_clock, ai_clock, set_comment, text_field, set_prompt, confirm_button):
         QGraphicsView.__init__(self)
 
         self.ROWS = 15
         self.COLUMNS = 15
         self.SIZE = 4
-
-        # self.deltaF = 1.0
 
         self.SCALE_MANUAL = 10
         self.SHIFT_FOCUS = QPointF(0, 0)
@@ -31,25 +31,6 @@ class Board(QGraphicsView):
         self._double_letter_bonuses = []
         self._triple_letter_bonuses = []
 
-        self.tiles_in_rack = {}
-        self.tiles_to_exchange = {}
-        self._total_points = 0
-        self._points = 0
-        self._words = []
-        self._is_connected = False
-
-        self.is_ai_turn = None
-
-        # parameters visible for AI
-        # score represents total score of both players
-        self.score = score
-        # latest tiles represent tiles added in last turn
-        self.latest_tiles = {}
-        # tiles represent all tiles on board
-        self.tiles = {}
-        # sack represents sack
-        self.sack = Sack()
-
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
@@ -58,13 +39,52 @@ class Board(QGraphicsView):
         self.player_clock = player_clock
         self.ai_clock = ai_clock
         self.set_comment = set_comment
+        self.set_prompt = set_prompt
+        self.confirm_button = confirm_button
+        self.text_field = text_field
 
-        self.ai = AI(self.scene, self.latest_tiles, self.tiles, self.sack)
+        # parameters visible for AI
+        # score represents total score of both players
+        self.score = score
+        # latest tiles represent tiles added in last turn
+        self.latest_tiles = None
+        # tiles represent all tiles on board
+        self.tiles = None
+        # sack represents sack
+        self.sack = None
+        self.tiles_in_rack = None
+        self.tiles_to_exchange = None
+        self._total_points = None
+        self._points = None
+        self._words = None
+        self._is_connected = False
+        self.is_ai_turn = None
+        self.ai = None
+
+    def prepare_game(self):
+        self.sack = Sack()
+        self.tiles = {}
+        self.latest_tiles = {}
+        self.tiles_in_rack = {}
+        self.tiles_to_exchange = {}
+        self.ai = AI(self.scene, self.tiles, self.sack)
+        self._total_points = 0
+        self._points = 0
+        self._words = []
+        self._is_connected = False
 
     def start_game(self):
-        self.is_ai_turn = bool(random.getrandbits(1))
+        self.prepare_game()
+        # self.is_ai_turn = bool(random.getrandbits(1))
+        self.is_ai_turn = False
         self.add_letters_to_rack()
         self.player_clock.start()
+        if self.is_ai_turn:
+            self.set_comment('Przeciwnik myśli')
+            # ai_thread = threading.Thread(target=self.ai.turn)
+            # ai_thread.start()
+            self.ai.turn()
+            self.is_ai_turn = False
         return self.is_ai_turn
 
     def add_letters_to_rack(self, letters=None):
@@ -85,23 +105,45 @@ class Board(QGraphicsView):
                 self.tiles[coords] = tile
 
     def exchange_letters(self):
+        if self.is_ai_turn:
+            self.set_comment('Ruch przeciwnika')
+            return
+
+        if not self.tiles_to_exchange:
+            self.set_comment('Brak liter do wymiany')
+            return
+
         letters_to_exchange = []
         for tile in self.tiles_to_exchange.values():
             letters_to_exchange.append(tile.letter)
             del self.tiles[tile.coords]
             self.scene.removeItem(tile)
+
+        letters_on_board = []
+        for tile in self.latest_tiles.values():
+            letters_on_board.append(tile.letter)
+            del self.tiles[tile.coords]
+            self.scene.removeItem(tile)
+
         new_letters = self.sack.exchange(letters_to_exchange)
         self.tiles_to_exchange.clear()
-        self.add_letters_to_rack(new_letters)
+        self.latest_tiles.clear()
+        self.add_letters_to_rack(new_letters + letters_on_board)
+
+        # self.ai.turn()
 
     def resign(self):
-        pass
+        for tile in self.tiles.values():
+            self.scene.removeItem(tile)
+
+        self.prepare_game()
 
     def end_turn(self):
         if self.is_ai_turn:
-            self.information.setText('Ruch przeciwnika')
+            self.set_comment('Ruch przeciwnika')
             return
 
+        blank_tiles = []
         column = row = -1
         columns = []
         rows = []
@@ -121,9 +163,27 @@ class Board(QGraphicsView):
         for tile_coords in self.latest_tiles:
             tile = self.latest_tiles.get(tile_coords)
             if tile.letter == BLANK:
-                new_letter = input("Jaką literą ma być blank?").upper()
-                if new_letter in Sack.values:
-                    tile.change_blank(new_letter)
+                self.set_prompt("Jaką literą ma być blank?")
+                self.text_field.setDisabled(False)
+                self.text_field.returnPressed.connect(self.end_turn)
+                self.confirm_button.setDisabled(False)
+                if not self.text_field.text():
+                    return
+
+                new_letter = self.text_field.text()
+                if new_letter.upper() in Sack.values:
+                    tile.change_blank(new_letter.upper())
+                    blank_tiles.append(tile)
+                    self.text_field.setDisabled(True)
+                    self.text_field.clear()
+                    self.set_prompt('')
+                    self.confirm_button.setDisabled(True)
+
+                else:
+                    self.set_comment('Podaj poprawną literę')
+                    self.text_field.clear()
+                    return
+
             x, y = tile_coords.get()
             if column < 0 and row < 0:
                 column, row = x, y
@@ -172,6 +232,10 @@ class Board(QGraphicsView):
         for word in self._words:
             if not is_word_in_dictionary(word):
                 self.set_comment(f'słowo {word} nie występuje w słowniku')
+                if blank_tiles:
+                    for blank in blank_tiles:
+                        blank.change_back()
+                    self.end_turn()
                 return
 
         for tile_coords in self.latest_tiles.values():
@@ -183,11 +247,29 @@ class Board(QGraphicsView):
         self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
         self.is_ai_turn = not self.is_ai_turn
-        self.ai.run()
-        # self.score.add_points('AI', ai_score)
+        start = time.time()
+        ai_points, ai_word = self.ai.turn()
+        end = time.time()
+        print(end - start)
+        self.score.add_points('AI', ai_points)
+        # ai_thread = threading.Thread(target=self.ai_turn)
+        # ai_thread.start()
+        print('ulozone')
+        start = time.time()
+        self.ai.no_turn()
+        end = time.time()
+        print(end - start)
         self.is_ai_turn = not self.is_ai_turn
 
         self.latest_tiles.clear()
+
+    def ai_turn(self):
+        self.ai.no_turn()
+        while not self.is_ai_turn():
+            self.sleep(0.1)
+        ai_score, word = self.ai.turn()
+        self.score.add_points('AI', ai_score)
+        self.is_ai_turn = False
 
     def add_word_and_points(self, column, row, direction, first=None, last=None):
         word = ''
@@ -227,9 +309,6 @@ class Board(QGraphicsView):
                 coords = Coords(column, current)
 
             tile = self.tiles.get(coords)
-            if not tile:
-                self.set_comment("some mistake")
-                return
 
             if not self.latest_tiles.get(coords):
                 self._is_connected = True
@@ -278,7 +357,7 @@ class Board(QGraphicsView):
     def on_tile_move(self, tile):
         x, y = tile.coords.get()
 
-        if y == 15 or y in (16, 17) and not 2 < x < 12:
+        if y == 15 or (y in (16, 17) and not 2 < x < 12) or self.is_ai_turn:
             tile.undo_move()
             return
 

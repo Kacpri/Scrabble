@@ -46,6 +46,10 @@ class Tile(QGraphicsSimpleTextItem):
             self.letter = new_letter.upper()
             self.setText(new_letter)
 
+    def change_back(self):
+        self.letter = '_'
+        self.setText('_')
+
     def mousePressEvent(self, event):
         self.old_position = self.pos()
         self.old_coords = self.coords

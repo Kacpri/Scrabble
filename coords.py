@@ -75,6 +75,9 @@ class Coords:
     def is_in_rack(self):
         return self._y == 16
 
+    def is_in_exchange_zone(self):
+        return self._y == 17
+
     def is_same_row(self, coords):
         return self._y == coords.y()
 
@@ -82,4 +85,4 @@ class Coords:
         return self._x == coords.x()
 
     def is_valid(self):
-        return self.is_in_rack() or (0 <= self._x < 15 and 0 <= self._y < 15)
+        return 0 <= self._x < 15 and 0 <= self._y < 15

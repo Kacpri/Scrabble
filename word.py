@@ -112,12 +112,11 @@ class Word:
             letter_points = 0
 
         if is_from_rack:
+            self.added_letters.append(letter)
             if is_blank:
                 self.rack.remove(BLANK)
                 self.blanks.append(position)
             else:
-                if letter not in self.rack:
-                    pass
                 self.rack.remove(letter)
             if position in double_letter_bonus_coords:
                 letter_points *= 2
@@ -137,9 +136,9 @@ class Word:
             self.bonus += extra_points
 
         self.points += letter_points
+
         if len(self.added_letters) == 7:
             self.bonus += 50
-        self.is_in_dictionary()
 
     def sum_up(self):
         return self.points * self.multiplier + self.bonus

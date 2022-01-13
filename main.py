@@ -61,19 +61,22 @@ class MyWindow(QMainWindow):
         self.ai_layout.addWidget(self.ai_clock)
         self.ai_widget.setLayout(self.ai_layout)
 
-        self.information_label = QLabel('Podaj swoje imię:')
-        self.information_label.setGeometry(200, 250, 100, 50)
-        self.information_label.setWordWrap(True)
+        self.information_label = QLabel('Cześć, jak masz na imię?')
 
-        self.textfield = QLineEdit()
+        self.prompt_label = QLabel('Przedstaw się')
+        self.prompt_label.setGeometry(200, 250, 100, 50)
+        self.prompt_label.setWordWrap(True)
+
+        self.text_field = QLineEdit()
         self.confirm_button = QPushButton('Potwierdź')
 
-        self.confirm_button.clicked.connect(self.confirm_button_clicked)
-        self.textfield.returnPressed.connect(self.confirm_button.click)
+        self.text_field.returnPressed.connect(self.confirmed)
+        self.confirm_button.clicked.connect(self.text_field.returnPressed)
 
-        self.board = Board(self.score, self.player_clock, self.ai_clock, self.information_label.setText)
-        self.board.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        self.board.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.board = Board(self.score, self.player_clock, self.ai_clock, self.information_label.setText,
+                           self.text_field, self.prompt_label.setText, self.confirm_button)
+        # self.board.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        # self.board.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
         self.end_turn_button = QPushButton('Zakończ ruch')
 
@@ -84,6 +87,7 @@ class MyWindow(QMainWindow):
         self.exchange_letters_button.setDisabled(True)
 
         self.start_button = QPushButton('Rozpocznij grę')
+        self.start_button.setDisabled(True)
 
         self.resign_button = QPushButton('Poddaj się')
         self.resign_button.setDisabled(True)
@@ -94,22 +98,17 @@ class MyWindow(QMainWindow):
 
         self.start_button.clicked.connect(self.start_button_clicked)
 
-        self.resign_button.clicked.connect(self.board.resign)
-        self.resign_button.clicked.connect(lambda: self.ai_clock.set_time(15))
-        self.resign_button.clicked.connect(lambda: self.player_clock.set_time(15))
-        self.resign_button.clicked.connect(lambda: self.start_button.setDisabled(False))
-        self.resign_button.clicked.connect(lambda: self.end_turn_button.setDisabled(True))
-        self.resign_button.clicked.connect(lambda: self.exchange_letters_button.setDisabled(True))
-        self.resign_button.clicked.connect(lambda: self.resign_button.setDisabled(True))
+        self.resign_button.clicked.connect(self.resign_button_clicked)
 
         self.left_layout.addWidget(self.player_widget)
         self.left_layout.addWidget(self.ai_widget)
         self.left_layout.addStretch()
         self.left_layout.addWidget(self.information_label)
-        self.left_layout.addWidget(self.textfield)
-        self.left_layout.addWidget(self.confirm_button)
         self.left_layout.addStretch()
-        self.left_layout.addWidget(self.start_button)
+        self.left_layout.addWidget(self.prompt_label)
+        self.left_layout.addWidget(self.text_field)
+        self.left_layout.addWidget(self.confirm_button)
+        self.left_layout.addWidget(self.start_button, 100)
         self.left_layout.addWidget(self.end_turn_button)
         self.left_layout.addWidget(self.exchange_letters_button)
         self.left_layout.addWidget(self.resign_button)
@@ -133,12 +132,22 @@ class MyWindow(QMainWindow):
 
         self.setFixedSize(width, height)
 
-    def confirm_button_clicked(self):
-        new_name = self.textfield.text()
+    def confirmed(self):
+        new_name = self.text_field.text()
         if not new_name:
+            self.information_label.setText('Musisz coś wpisać!')
             return
         self.player_name = new_name
         self.player_label.setText(self.player_name)
+        self.start_button.setDisabled(False)
+        self.confirm_button.setDisabled(True)
+        self.text_field.setDisabled(True)
+        self.text_field.clear()
+        self.prompt_label.clear()
+        self.score.set_player_names(['AI', self.player_name])
+        self.table.set_headers()
+        self.information_label.setText(f'Cześć {self.player_name}!')
+        self.text_field.returnPressed.disconnect(self.confirmed)
 
     def start_button_clicked(self):
         self.start_button.setDisabled(True)
@@ -150,8 +159,18 @@ class MyWindow(QMainWindow):
         players = [self.player_name, 'AI']
         if is_ai_turn:
             players = reversed(players)
-        self.score.set_players(players)
+        self.score.set_player_names(players)
         self.table.set_headers()
+
+    def resign_button_clicked(self):
+        self.board.resign()
+        self.setCentralWidget(self.board)
+        self.ai_clock.set_time(15)
+        self.player_clock.set_time(15)
+        self.start_button.setDisabled(False)
+        self.end_turn_button.setDisabled(True)
+        self.exchange_letters_button.setDisabled(True)
+        self.resign_button.setDisabled(True)
 
 
 if __name__ == '__main__':
