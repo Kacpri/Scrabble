@@ -89,14 +89,11 @@ class Word:
             self.positions.append(position)
             self.start = self.end = position
         else:
-            for index in range(len(self.word)):
-                if position < self.positions[index]:
-                    self.word = self.word[:index] + letter + self.word[index:]
-                    self.positions.insert(index, position)
-                    break
-            else:
-                self.word = self.word + letter
-                self.positions.append(position)
+            self.positions.append(position)
+            self.positions.sort()
+            index = self.positions.index(position)
+            self.word = self.word[:index] + letter + self.word[index:]
+
         if self.start != self.positions[0]:
             self.start = self.positions[0]
             self.check_beginning()
