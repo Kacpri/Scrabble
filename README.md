@@ -20,12 +20,12 @@ Project is created with:
 * PyQt5 version: 5.15.6
 	
 ## Setup
-Install requirements and run dictionary.py first:
+Install requirements first:
 ```
 $ pip install -r requirements.txt
-$ python dictionary.py
 ```
 Then you can start playing by running main.py
 ```
 $ python main.py
 ```
+First run takes a while as program is creating necessary files

@@ -1,7 +1,10 @@
 from itertools import permutations
-from sack import Sack
+from sack import values_without_blank
+import os
 
 BLANK = '_'
+filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
+directory = "text_files/"
 
 
 def prepare_data(text):
@@ -12,34 +15,57 @@ def prepare_data(text):
 
 
 def words_reader(file_name):
-    try:
-        file = open(file_name, "r", encoding='utf-8')
-    except FileNotFoundError:
-        return
-    file_content = file.read()
-    file.close()
-    return file_content
+    if os.path.exists(file_name):
+        with open(file_name, "r", encoding='utf-8') as file:
+            file_content = file.read()
+        return file_content
 
 
-filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
-data = words_reader('text files/words.txt')
+def words_writer(file_name, words):
+    with open(file_name, "w", encoding='utf-8') as file:
+        for word in sorted(words):
+            file.write(f'{word}\n')
+
+
+data = words_reader('words.txt')
 dictionary = prepare_data(data)
-groups = {}
 
 
-def load_data():
-    for index in range(4):
-        content = words_reader('text files/' + filenames[index])
-        if content:
-            groups[index + 4] = []
-            for group in content.split('\n'):
-                groups[index + 4].append(group)
+def find_groups(length):
+    groups = set()
+    for words_by_length in dictionary:
+        for word in words_by_length:
+            for i in range(len(word) + 1 - length):
+                group = word[i:i + length]
+                if not any(letter in group for letter in ['v', 'x', 'q']):
+                    groups.add(group)
+    return groups
+
+
+def load_groups(size):
+    groups = []
+    content = words_reader(directory + filenames[size - 4])
+    if content:
+        for group in content.split('\n'):
+            groups.append(group)
+    else:
+        groups = find_groups(size)
+        words_writer(directory + filenames[size - 4], groups)
+    return groups
+
+
+if not os.path.isdir(directory):
+    os.mkdir(directory)
+quads = load_groups(4)
+fives = load_groups(5)
+sixes = load_groups(6)
+sevens = load_groups(7)
 
 
 def is_word_in_dictionary(word):
     word = word.lower()
     if BLANK in word:
-        for letter in Sack.values_without_blank():
+        for letter in values_without_blank():
             letter = letter.lower()
             new_word = word.replace(BLANK, letter, 1)
             if BLANK in new_word:
@@ -52,10 +78,19 @@ def is_word_in_dictionary(word):
     return False
 
 
-def is_in_group(word, length):
-    if not 4 <= length <= 7:
+def is_in_group(word):
+    length = len(word)
+    if length == 4:
+        group = quads
+    elif length == 5:
+        group = fives
+    elif length == 6:
+        group = sixes
+    elif length == 7:
+        group = sevens
+    else:
         return False
-    return word.lower() in groups[length]
+    return word.lower() in group
 
 
 def possible_words_with_blank(word, find_letters=False):
@@ -63,7 +98,7 @@ def possible_words_with_blank(word, find_letters=False):
     if BLANK not in word:
         return word
     words = []
-    for letter in Sack.values_without_blank():
+    for letter in values_without_blank():
         letter = letter.lower()
         new_word = word.replace(BLANK, letter, 1)
         if BLANK in new_word:
@@ -101,26 +136,3 @@ def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length
                 if is_word_in_dictionary(word):
                     words[length + len(on_board)].add(word)
     print(words)
-
-
-def find_groups(length):
-    groups = set()
-    for words_by_length in dictionary:
-        for word in words_by_length:
-            for i in range(len(word) + 1 - length):
-                group = word[i:i + length]
-                if not any(letter in group for letter in ['v', 'x', 'q']):
-                    groups.add(group)
-    return groups
-
-
-def install():
-    for count in range(len(filenames)):
-        file = open("text files/" + filenames[count], "w", encoding='utf-8')
-        groups = find_groups(count + 4)
-        for group in sorted(groups):
-            file.write(f'{group}\n')
-
-
-if __name__ == '__main__':
-    install()
