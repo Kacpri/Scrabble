@@ -1,23 +1,22 @@
 from board_utils import *
 from dictionary import *
+from sack import *
 
 
 class Word:
     def __init__(self, rack, neighbours, word='', points=0, multiplier=1, bonus=0, positions=None, parent=None,
-                 start=None, end=None, added_letters=None, blanks=None):
+                 start=None, end=None, added_letters=None):
         if not positions:
             positions = []
         if not added_letters:
             added_letters = []
-        if not blanks:
-            blanks = []
+
         self.word = word
         self.points = points
         self.multiplier = multiplier
         self.bonus = bonus
         self.positions = positions
         self.added_letters = added_letters
-        self.blanks = blanks
         self.rack = rack[:]
         self.neighbours = neighbours
         self.parent = parent
@@ -35,7 +34,7 @@ class Word:
             return
         if length > 7:
             length = 7
-        self.is_valid = is_in_group(self.word[:length], length)
+        self.is_valid = is_in_group(self.word[:length])
 
     def check_end(self):
         length = len(self.word)
@@ -43,14 +42,14 @@ class Word:
             return
         if length > 7:
             length = 7
-        self.is_valid = is_in_group(self.word[-length:], length)
+        self.is_valid = is_in_group(self.word[-length:])
 
     def is_in_dictionary(self):
         return is_word_in_dictionary(self.word)
 
     def create_child(self):
         child = Word(self.rack, self.neighbours, self.word, self.points, self.multiplier, self.bonus, self.positions[:],
-                     self, self.start, self.end, self.added_letters[:], self.blanks[:])
+                     self, self.start, self.end, self.added_letters[:])
         self.children.append(child)
         return child
 
@@ -71,9 +70,7 @@ class Word:
                     continue
                 extra_points = neighbours[1]
             if letter == BLANK:
-                for new_letter in Sack.values_without_blank():
-                    if new_letter in self.rack:
-                        continue
+                for new_letter in values_without_blank():
                     child = self.generate_child(new_letter, position, extra_points, True)
                     if child:
                         children.append(child)
@@ -104,17 +101,14 @@ class Word:
         if not self.is_valid:
             return
 
-        letter_points = Sack.values.get(letter)
+        letter_points = get_value(letter)
         if is_blank:
             letter_points = 0
 
         if is_from_rack:
-            self.added_letters.append(letter)
-            if is_blank:
-                self.rack.remove(BLANK)
-                self.blanks.append(position)
-            else:
-                self.rack.remove(letter)
+            self.added_letters.append((letter, letter_points, position))
+            self.rack.remove(letter if letter_points else BLANK)
+
             if position in double_letter_bonus_coords:
                 letter_points *= 2
             elif position in triple_letter_bonus_coords:

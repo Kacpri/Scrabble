@@ -4,11 +4,10 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
-from dictionary import *
-from sack import Sack
+from dictionary import is_word_in_dictionary
 from tile import Tile
-from board_utils import *
-from ai import AI
+from sack import *
+from ai import *
 import time
 import random
 
@@ -34,7 +33,6 @@ class Board(QGraphicsView):
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
-        load_data()
         self.setScene(self.scene)
         self.player_clock = player_clock
         self.ai_clock = ai_clock
@@ -58,7 +56,6 @@ class Board(QGraphicsView):
         self._points = None
         self._words = None
         self._is_connected = False
-        self.is_ai_turn = None
         self.ai = None
 
     def prepare_game(self):
@@ -67,7 +64,7 @@ class Board(QGraphicsView):
         self.latest_tiles = {}
         self.tiles_in_rack = {}
         self.tiles_to_exchange = {}
-        self.ai = AI(self.scene, self.tiles, self.sack)
+        self.ai = AI(self.tiles, self.sack)
         self._total_points = 0
         self._points = 0
         self._words = []
@@ -75,21 +72,19 @@ class Board(QGraphicsView):
 
     def start_game(self):
         self.prepare_game()
-        # self.is_ai_turn = bool(random.getrandbits(1))
-        self.is_ai_turn = False
+        # self.ai_ = bool(random.getrandbits(1))
+        self.ai.is_turn = False
         self.add_letters_to_rack()
         self.player_clock.start()
-        if self.is_ai_turn:
+        if self.ai.is_turn:
             self.set_comment('Przeciwnik myśli')
-            # ai_thread = threading.Thread(target=self.ai.turn)
-            # ai_thread.start()
-            self.ai.turn()
-            self.is_ai_turn = False
-        return self.is_ai_turn
+            ai_thread = threading.Thread(target=self.ai.turn)
+            ai_thread.start()
+        return self.ai.is_turn
 
     def add_letters_to_rack(self, letters=None):
         if not letters:
-            letters = self.sack.draw(7 - len(self.tiles_in_rack))
+            letters = self.sack.draw(7 - len(self.tiles_in_rack) - len(self.tiles_to_exchange))
         index = 0
         for column in range(4, 12):
             coords = Coords(column, 16)
@@ -97,15 +92,15 @@ class Board(QGraphicsView):
                 letter = letters[index]
                 index += 1
 
-                position = QPointF(column * 40.0 + 30, 16 * 40.0 + 22)
-                points = Sack.values.get(letter)
-                tile = Tile(letter, points, position, self.on_tile_move)
+                coords = Coords(column, 16)
+                points = get_value(letter)
+                tile = Tile(letter, points, coords, self.on_tile_move)
                 self.scene.addItem(tile)
                 self.tiles_in_rack[coords] = tile
                 self.tiles[coords] = tile
 
     def exchange_letters(self):
-        if self.is_ai_turn:
+        if self.ai.is_turn:
             self.set_comment('Ruch przeciwnika')
             return
 
@@ -138,8 +133,24 @@ class Board(QGraphicsView):
 
         self.prepare_game()
 
+    def wait_for_ai_move(self):
+        time.sleep(0.1)
+        while self.ai.is_turn:
+            time.sleep(0.1)
+        self.ai_clock.stop()
+        points = self.ai.word.sum_up()
+        self.set_comment(f'Komputer ułożył słowo {self.ai.word} i uzyskał {points} punktów')
+        self.score.add_points('AI', points)
+        for letter, points, coords in self.ai.word.added_letters:
+            tile = Tile(letter, points, coords)
+            tile.set_immovable()
+            self.tiles[coords] = tile
+            self.scene.addItem(tile)
+            self.scene.update()
+        self.player_clock.start()
+
     def end_turn(self):
-        if self.is_ai_turn:
+        if self.ai.is_turn:
             self.set_comment('Ruch przeciwnika')
             return
 
@@ -149,7 +160,7 @@ class Board(QGraphicsView):
         rows = []
         self._is_connected = True
 
-        if not self.tiles or not self.latest_tiles:
+        if not self.latest_tiles:
             self.set_comment('Musisz najpierw wykonać ruch')
             return
 
@@ -171,7 +182,7 @@ class Board(QGraphicsView):
                     return
 
                 new_letter = self.text_field.text()
-                if new_letter.upper() in Sack.values:
+                if new_letter.upper() in values_without_blank():
                     tile.change_blank(new_letter.upper())
                     blank_tiles.append(tile)
                     self.text_field.setDisabled(True)
@@ -185,6 +196,9 @@ class Board(QGraphicsView):
                     return
 
             x, y = tile_coords.get()
+
+            is_valid = True
+
             if column < 0 and row < 0:
                 column, row = x, y
             elif column and row:
@@ -195,35 +209,38 @@ class Board(QGraphicsView):
                     row = -1
                     columns = None
                 else:
-                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
-                    return
+                    is_valid = False
+
             if column >= 0:
                 if column == x:
                     rows.append(y)
                 else:
-                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
-                    return
+                    is_valid = False
+
             if row >= 0:
                 if row == y:
                     columns.append(x)
                 else:
-                    self.set_comment('Wyrazy muszą być ułożone w jednej linii')
-                    return
+                    is_valid = False
+
+            if not is_valid:
+                self.set_comment('Wyrazy muszą być ułożone w jednej linii')
+                return
 
         self._words = []
         self._points = 0
 
         if rows:
-            self.add_word_and_points(column, rows[0], 'vertical', min(rows), max(rows))
+            self.add_word_and_points(column, rows[0], Directions.down, min(rows), max(rows))
 
             for row in rows:
-                self.add_word_and_points(column, row, 'horizontal')
+                self.add_word_and_points(column, row, Directions.right)
 
         elif columns:
-            self.add_word_and_points(columns[0], row, 'horizontal', min(columns), max(columns))
+            self.add_word_and_points(columns[0], row, Directions.right, min(columns), max(columns))
 
             for column in columns:
-                self.add_word_and_points(column, row, 'vertical')
+                self.add_word_and_points(column, row, Directions.down)
 
         if not self._is_connected:
             self.set_comment('Wyraz musi się stykać z występującymi już na planszy')
@@ -238,6 +255,7 @@ class Board(QGraphicsView):
                     self.end_turn()
                 return
 
+        self.player_clock.stop()
         for tile_coords in self.latest_tiles.values():
             tile_coords.set_immovable()
 
@@ -246,37 +264,22 @@ class Board(QGraphicsView):
 
         self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
-        self.is_ai_turn = not self.is_ai_turn
-        start = time.time()
-        ai_points, ai_word = self.ai.turn()
-        end = time.time()
-        print(end - start)
-        self.score.add_points('AI', ai_points)
-        # ai_thread = threading.Thread(target=self.ai_turn)
-        # ai_thread.start()
-        print('ulozone')
-        start = time.time()
-        self.ai.no_turn()
-        end = time.time()
-        print(end - start)
-        self.is_ai_turn = not self.is_ai_turn
+
+        self.ai_clock.start()
+        ai_thread = threading.Thread(target=self.ai.turn)
+        ai_thread.start()
+
+        wait_for_ai_thread = threading.Thread(target=self.wait_for_ai_move)
+        wait_for_ai_thread.start()
 
         self.latest_tiles.clear()
-
-    def ai_turn(self):
-        self.ai.no_turn()
-        while not self.is_ai_turn():
-            self.sleep(0.1)
-        ai_score, word = self.ai.turn()
-        self.score.add_points('AI', ai_score)
-        self.is_ai_turn = False
 
     def add_word_and_points(self, column, row, direction, first=None, last=None):
         word = ''
         word_points = 0
         word_multiplier = 1
 
-        if direction == 'horizontal':
+        if direction == Directions.right:
             if not first:
                 first = column
             if not last:
@@ -287,7 +290,7 @@ class Board(QGraphicsView):
             while self.tiles.get(Coords(last + 1, row)):
                 last += 1
 
-        elif direction == 'vertical':
+        elif direction == Directions.down:
             if not first:
                 first = row
             if not last:
@@ -303,9 +306,9 @@ class Board(QGraphicsView):
 
         for current in range(first, last + 1):
             coords = None
-            if direction == 'horizontal':
+            if direction == Directions.right:
                 coords = Coords(current, row)
-            elif direction == 'vertical':
+            elif direction == Directions.down:
                 coords = Coords(column, current)
 
             tile = self.tiles.get(coords)
@@ -357,7 +360,7 @@ class Board(QGraphicsView):
     def on_tile_move(self, tile):
         x, y = tile.coords.get()
 
-        if y == 15 or (y in (16, 17) and not 2 < x < 12) or self.is_ai_turn:
+        if y == 15 or y in (16, 17) and not 2 < x < 12 or y < 15 and self.ai.is_turn:
             tile.undo_move()
             return
 

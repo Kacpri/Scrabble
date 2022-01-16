@@ -1,12 +1,9 @@
-import threading
-
-from PyQt5.QtCore import QPointF
-
 from board_utils import *
-from dictionary import *
+from dictionary import BLANK, possible_letters
 from word import Word
-from tile import Tile
 from enum import Enum
+from time import sleep
+from multiprocessing import Manager, Process
 
 
 class Directions(Enum):
@@ -39,16 +36,87 @@ def get_functions(direction):
         return None
 
 
+def add_word(words_dict, word):
+    if word.is_in_dictionary():
+        words_dict.append(word)
+        # points = word.sum_up()
+        # if not words_dict.get(points):
+        #     words_dict[points] = []
+        # words_dict.get(points).append(word)
+
+
+def check_neighbourhood(tiles_list, coords, words, direction):
+    while True:
+        coords = direction(coords)
+        neighbourhood = tiles_list.get(coords)
+        if not neighbourhood:
+            return coords
+        is_blank = neighbourhood[1] == 0
+        for word in words:
+            word.add_letter(neighbourhood[0], coords, 0, False, is_blank)
+
+
+def find_new_word_with_direction(tiles_on_board, rack, direction, neighbourhoods_to_check, neighbours, words):
+    direct_coords, opposite_coords = get_functions(direction)
+    for current in neighbourhoods_to_check:
+        offset, max_opposite_length = neighbourhoods_to_check.get(current)
+        all_words = [[] for _ in range(9)]
+        first_word = Word(rack, neighbours)
+        first_neighbour_coords = check_neighbourhood(tiles_on_board, current, [first_word], opposite_coords)
+        all_words[0] = [first_word]
+        for direct_level in range(1, len(rack)):
+            all_words[direct_level] = []
+            for word in all_words[direct_level - 1]:
+                all_words[direct_level].extend(word.generate_children(current))
+
+            if not all_words[direct_level]:
+                break
+
+            next_neighbour_coords = first_neighbour_coords
+            previous_neighbour_coords = direct_coords(current)
+            if previous_neighbour_coords.is_valid() and tiles_on_board.get(previous_neighbour_coords):
+                previous_neighbour_coords = check_neighbourhood(tiles_on_board, current, all_words[direct_level],
+                                                                direct_coords)
+            for word in all_words[direct_level]:
+                add_word(words, word)
+
+            stop_value = direct_level - offset
+            if direct_level > len(rack) / 2:
+                stop_value = len(rack) - direct_level
+            for opposite_level in range(stop_value):
+                if not next_neighbour_coords.is_valid():
+                    break
+                current = next_neighbour_coords
+                level = direct_level + opposite_level + 1
+                all_words[level] = []
+
+                for word in all_words[level - 1]:
+                    all_words[level].extend(word.generate_children(current))
+
+                next_neighbour_coords = opposite_coords(current)
+
+                if tiles_on_board.get(next_neighbour_coords):
+                    next_neighbour_coords = check_neighbourhood(tiles_on_board, current, all_words[level],
+                                                                opposite_coords)
+
+                for word in all_words[level]:
+                    add_word(words, word)
+
+            if not previous_neighbour_coords.is_valid():
+                break
+            current = previous_neighbour_coords
+
+
 class AI:
-    def __init__(self, scene, tiles, sack):
-        self.scene = scene
+    def __init__(self, tiles, sack):
         self.tiles = tiles
         self.tiles_on_board = {}
         self.new_tiles = None
         self.sack = sack
 
         self.word = None
-        self.words_by_points = {}
+        self.manager = Manager()
+        self.words = self.manager.list()
         self.rack = self.sack.draw()
         horizontal = {}
         vertical = {}
@@ -61,26 +129,15 @@ class AI:
             self.neighbourhoods_to_check[direction] = {}
             self.new_neighbourhoods_to_check[direction] = {}
 
-    # def find_all_permutations(self):
-    #     all_permutations = []
-    #     for length in range(1, 8):
-    #         all_permutations = all_permutations + list(permutations(self.rack, length))
-    #
-    #     self.all_permutations.clear()
-    #     for permutation in all_permutations:
-    #         self.all_permutations.append("".join(permutation))
-    #     for permutation in self.all_permutations:
-    #         if '_' in permutation:
-    #             for letter in Sack.values_without_blank():
-    #                 self.all_permutations = self.all_permutations + permutation.replace('_', letter)
-    #             self.all_permutations.remove(permutation)
+        self.is_turn = True
+        self.is_no_turn = False
 
     def find_new_tiles(self):
         self.new_tiles = []
         for tile_coords in self.tiles:
             if tile_coords.is_valid() and tile_coords not in self.tiles_on_board:
                 self.new_tiles.append(tile_coords)
-                self.tiles_on_board[tile_coords] = self.tiles.get(tile_coords)
+                self.tiles_on_board[tile_coords] = self.tiles.get(tile_coords).get_letter_and_points()
 
     def remove_neighbourhood_to_check(self, neighbour, direction):
         if self.neighbourhoods_to_check[direction].get(neighbour):
@@ -95,9 +152,9 @@ class AI:
         neighbour_coords = first_neighbour_coords
         points = 0
         while neighbour := self.tiles_on_board.get(direction(neighbour_coords)):
-            sequence = neighbour.letter + sequence if reversed_order else sequence + neighbour.letter
-            points += neighbour.points
-            neighbour_coords = neighbour.coords
+            sequence = neighbour[0] + sequence if reversed_order else sequence + neighbour[0]
+            points += neighbour[1]
+            neighbour_coords = direction(neighbour_coords)
         return sequence, neighbour_coords, points
 
     def find_closest_neighbourhood(self, tile_coords, direction):
@@ -113,10 +170,8 @@ class AI:
     def find_neighbours(self, tile_coords, direction, neighbours):
         direct_coords, opposite_coords = get_functions(direction)
 
-        tile = self.tiles_on_board.get(tile_coords)
         start = ""
-        middle = tile.letter
-        middle_points = tile.points
+        middle, middle_points = self.tiles_on_board.get(tile_coords)
         end = ""
 
         neighbour_coords = tile_coords
@@ -153,7 +208,7 @@ class AI:
         first_tile_coords = None
         for tile_coords in self.new_tiles:
 
-            if self.tiles_on_board.get(tile_coords).points == 0:
+            if self.tiles_on_board.get(tile_coords)[1] == 0:
                 self.blanks.append(tile_coords)
 
             if tile_coords in self.neighbours[Directions.down]:
@@ -171,14 +226,6 @@ class AI:
                     self.find_vertical_neighbours(tile_coords)
                 else:
                     self.find_horizontal_neighbours(tile_coords)
-
-        print('vertical')
-        for neighbour in self.neighbours[Directions.down]:
-            print(f'{neighbour}: {self.neighbours[Directions.down].get(neighbour)}')
-        print('horizontal')
-        for neighbour in self.neighbours[Directions.right]:
-            print(f'{neighbour}: {self.neighbours[Directions.right].get(neighbour)}')
-        print('-----------------------------------------------------------------------------')
 
     def add_neighbourhood(self, neighbourhood, direction, offset=0, max_opposite_length=3):
         self.neighbourhoods_to_check[direction][neighbourhood] = (offset, max_opposite_length)
@@ -200,22 +247,19 @@ class AI:
                 self.add_neighbourhood(neighbourhood, Directions.right, 2)
             return
 
+        for direction in Directions:
+            self.new_neighbourhoods_to_check[direction].clear()
+
         first_tile = self.new_tiles[0]
         last_tile = self.new_tiles[-1]
 
-        if first_tile.is_same_column(last_tile):
-            direction = Directions.up
-            while self.tiles_on_board.get(first_tile.above()):
-                first_tile = first_tile.above()
-            while self.tiles_on_board.get(last_tile.below()):
-                last_tile = last_tile.below()
+        direction = Directions.up if Coords.is_same_column(first_tile, last_tile) else Directions.left
+        direct_coords, opposite_coords = get_functions(direction)
 
-        else:
-            direction = Directions.left
-            while self.tiles_on_board.get(first_tile.on_left()):
-                first_tile = first_tile.on_left()
-            while self.tiles_on_board.get(last_tile.on_right()):
-                last_tile = last_tile.on_right()
+        while self.tiles_on_board.get(direct_coords(first_tile)):
+            first_tile = direct_coords(first_tile)
+        while self.tiles_on_board.get(opposite_coords(last_tile)):
+            last_tile = opposite_coords(last_tile)
 
         for tile in self.new_tiles:
             self.add_tile_neighbourhoods(tile, perpendicular(direction))
@@ -224,132 +268,112 @@ class AI:
         self.add_tile_neighbourhoods(first_tile, direction)
         self.add_tile_neighbourhoods(last_tile, opposite(direction))
 
-    # def check_neighbourhood(self, coords, word, direction):
-    #     while neighbour := self.get_tile(coords):
-    #         is_blank = neighbour.points == 0
-    #         word.add_letter(neighbour.letter, coords, False, is_blank)
+    # def check_neighbourhood(self, coords, words, direction):
+    #     while True:
     #         coords = direction(coords)
-    #     return coords
+    #         neighbourhood = self.tiles_on_board.get(coords)
+    #         if not neighbourhood:
+    #             return coords
+    #         is_blank = neighbourhood[1] == 0
+    #         for word in words:
+    #             word.add_letter(neighbourhood[0], coords, 0, False, is_blank)
 
-    def check_neighbourhood(self, coords, words, direction):
-        while True:
-            coords = direction(coords)
-            neighbourhood = self.tiles_on_board.get(coords)
-            if not neighbourhood:
-                return coords
-            is_blank = neighbourhood.points == 0
-            for word in words:
-                word.add_letter(neighbourhood.letter, coords, 0, False, is_blank)
+    # def add_word(self, word):
+    #     if word.is_in_dictionary():
+    #         points = word.sum_up()
+    #         if not self.words_by_points.get(points):
+    #             self.words_by_points[points] = []
+    #         self.words_by_points.get(points).append(word)
 
-    def add_word(self, word):
-        if word.is_in_dictionary():
-            points = word.sum_up()
-            if not self.words_by_points.get(points):
-                self.words_by_points[points] = []
-            self.words_by_points.get(points).append(word)
-
-    def find_new_word_with_direction(self, direction, neighbourhoods_to_check):
-        neighbours = self.neighbours[direction]
-        direct_coords, opposite_coords = get_functions(direction)
-        for current in neighbourhoods_to_check:
-            offset, max_opposite_length = neighbourhoods_to_check.get(current)
-            all_words = [[] for _ in range(9)]
-            first_word = Word(self.rack, neighbours)
-            first_neighbour_coords = self.check_neighbourhood(current, [first_word], opposite_coords)
-            all_words[0] = [first_word]
-            for direct_level in range(1, len(self.rack)):
-                all_words[direct_level] = []
-                for word in all_words[direct_level - 1]:
-                    all_words[direct_level].extend(word.generate_children(current))
-
-                if not all_words[direct_level]:
-                    break
-
-                next_neighbour_coords = first_neighbour_coords
-                previous_neighbour_coords = direct_coords(current)
-                if previous_neighbour_coords.is_valid() and self.tiles_on_board.get(previous_neighbour_coords):
-                    previous_neighbour_coords = self.check_neighbourhood(current, all_words[direct_level],
-                                                                         direct_coords)
-                for word in all_words[direct_level]:
-                    self.add_word(word)
-
-                stop_value = direct_level - offset
-                if direct_level > len(self.rack) / 2:
-                    stop_value = len(self.rack) - direct_level
-                for opposite_level in range(stop_value):
-                    if not next_neighbour_coords.is_valid():
-                        break
-                    current = next_neighbour_coords
-                    level = direct_level + opposite_level + 1
-                    all_words[level] = []
-
-                    for word in all_words[level - 1]:
-                        all_words[level].extend(word.generate_children(current))
-
-                    next_neighbour_coords = opposite_coords(current)
-
-                    if self.tiles_on_board.get(next_neighbour_coords):
-                        next_neighbour_coords = self.check_neighbourhood(current, all_words[level], opposite_coords)
-
-                    for word in all_words[level]:
-                        self.add_word(word)
-
-                if not previous_neighbour_coords.is_valid():
-                    break
-                current = previous_neighbour_coords
+    # def find_new_word_with_direction(self, direction, neighbourhoods_to_check):
+    #     neighbours = self.neighbours[direction]
+    #     direct_coords, opposite_coords = get_functions(direction)
+    #     for current in neighbourhoods_to_check:
+    #         offset, max_opposite_length = neighbourhoods_to_check.get(current)
+    #         all_words = [[] for _ in range(9)]
+    #         first_word = Word(self.rack, neighbours)
+    #         first_neighbour_coords = self.check_neighbourhood(current, [first_word], opposite_coords)
+    #         all_words[0] = [first_word]
+    #         for direct_level in range(1, len(self.rack)):
+    #             all_words[direct_level] = []
+    #             for word in all_words[direct_level - 1]:
+    #                 all_words[direct_level].extend(word.generate_children(current))
+    #
+    #             if not all_words[direct_level]:
+    #                 break
+    #
+    #             next_neighbour_coords = first_neighbour_coords
+    #             previous_neighbour_coords = direct_coords(current)
+    #             if previous_neighbour_coords.is_valid() and self.tiles_on_board.get(previous_neighbour_coords):
+    #                 previous_neighbour_coords = self.check_neighbourhood(current, all_words[direct_level],
+    #                                                                      direct_coords)
+    #             for word in all_words[direct_level]:
+    #                 self.add_word(word)
+    #
+    #             stop_value = direct_level - offset
+    #             if direct_level > len(self.rack) / 2:
+    #                 stop_value = len(self.rack) - direct_level
+    #             for opposite_level in range(stop_value):
+    #                 if not next_neighbour_coords.is_valid():
+    #                     break
+    #                 current = next_neighbour_coords
+    #                 level = direct_level + opposite_level + 1
+    #                 all_words[level] = []
+    #
+    #                 for word in all_words[level - 1]:
+    #                     all_words[level].extend(word.generate_children(current))
+    #
+    #                 next_neighbour_coords = opposite_coords(current)
+    #
+    #                 if self.tiles_on_board.get(next_neighbour_coords):
+    #                     next_neighbour_coords = self.check_neighbourhood(current, all_words[level], opposite_coords)
+    #
+    #                 for word in all_words[level]:
+    #                     self.add_word(word)
+    #
+    #             if not previous_neighbour_coords.is_valid():
+    #                 break
+    #             current = previous_neighbour_coords
 
     def find_new_words(self, neighbourhoods_to_check):
+        processes = []
         for direction in Directions:
-            self.find_new_word_with_direction(direction, neighbourhoods_to_check[direction])
+            process = Process(target=find_new_word_with_direction,
+                              args=(self.tiles_on_board, self.rack, direction, neighbourhoods_to_check[direction],
+                                    self.neighbours[direction], self.words))
+            processes.append(process)
+        for process in processes:
+            process.start()
+        for process in processes:
+            process.join()
 
     def choose_word(self):
-        for points in sorted(self.words_by_points, reverse=True):
-            word_list = self.words_by_points[points]
-            self.word = word_list[0]
-            return
-
-    def place_word(self):
-        added_tiles = {}
-        for count in range(len(self.word.positions)):
-            coords = self.word.positions[count]
-            if self.tiles_on_board.get(coords):
-                continue
-            letter = self.word.word[count]
-            if letter in self.rack:
-                self.rack.remove(letter)
-            else:
-                self.rack.remove(BLANK)
-
-            points = Sack.values.get(letter)
-            if coords in self.word.blanks:
-                points = 0
-
-            position = QPointF(coords.x() * 40.0 + 30, coords.y() * 40.0 + 22)
-
-            tile = Tile(letter, points, position)
-            tile.set_immovable()
-            self.tiles[coords] = tile
-            self.tiles_on_board[coords] = tile
-            added_tiles[coords] = tile
-            self.scene.addItem(tile)
-        self.new_tiles = sorted(added_tiles)
+        self.word = Word([], None)
+        for word in self.words:
+            if word.points > self.word.points:
+                self.word = word
 
     def remove_invalid_words(self):
         coords_to_check = set(self.new_tiles)
         for direction in Directions:
             coords_to_check.update(list(self.new_neighbourhoods_to_check[direction]))
 
-        for points in self.words_by_points:
-            for word in self.words_by_points[points]:
+        for points in self.words:
+            for word in self.words[points]:
                 if not coords_to_check.isdisjoint(word.positions):
-                    self.words_by_points[points].remove(word)
+                    self.words[points].remove(word)
+
+    def place_word(self):
+        for letter, points, coords in self.word.added_letters:
+            self.rack.remove(letter if points else BLANK)
+            self.tiles_on_board[coords] = (letter, points)
 
     # I start no_turn after my move when player is thinking
     def no_turn(self):
-        # I forget placed word
-        self.word = None
+        sleep(0.1)
+        self.is_no_turn = True
         # and every word I found
-        self.words_by_points.clear()
+        self.words[:] = []
         # I search for neighbours around placed word
         self.find_new_neighbours()
         # I remove coords of tiles of the word I placed
@@ -358,12 +382,19 @@ class AI:
         self.prepare_neighbourhoods_to_check()
         # I look for words
         self.find_new_words(self.neighbourhoods_to_check)
-        pass
+        # I allow myself to start turn
+
+        self.is_no_turn = False
 
     # I start turn after finishing no_turn if player has placed his word
     def turn(self):
-        for direction in Directions:
-            self.new_neighbourhoods_to_check[direction].clear()
+        print(self.rack)
+        self.is_turn = True
+        # I wait for no_turn to finish
+        while self.is_no_turn:
+            sleep(0.2)
+        # I forget last word
+        self.word = None
 
         self.find_new_tiles()
 
@@ -374,15 +405,17 @@ class AI:
         self.prepare_neighbourhoods_to_check()
 
         self.remove_invalid_words()
-
         self.find_new_words(self.new_neighbourhoods_to_check)
         self.choose_word()
-        if self.word:
-            self.place_word()
-            self.end_turn()
-            return self.word.sum_up(), self.word.word
 
-        return 0, None
+        self.end_turn()
+
+        self.is_turn = False
+        self.no_turn()
 
     def end_turn(self):
+        if not self.word:
+            # exchange letters here or wait
+            return
+        self.place_word()
         self.rack.extend(self.sack.draw(7 - len(self.rack)))

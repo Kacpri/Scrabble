@@ -2,10 +2,11 @@ from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 
 from coords import Coords
+from dictionary import BLANK
 
 
 class Tile(QGraphicsSimpleTextItem):
-    def __init__(self, letter, points, position, on_position_change=None, parent=None):
+    def __init__(self, letter, points, coords, on_position_change=None, parent=None):
         QGraphicsSimpleTextItem.__init__(self, parent)
         if on_position_change:
             self.on_position_change = on_position_change
@@ -24,6 +25,8 @@ class Tile(QGraphicsSimpleTextItem):
 
         self.setText(letter)
         self.setScale(2.5)
+        position = QPointF(coords.x() * self.square_size + self.offset_right,
+                           coords.y() * self.square_size + self.offset_top)
         self.setPos(position)
 
         self.coords = None
@@ -42,13 +45,16 @@ class Tile(QGraphicsSimpleTextItem):
         return self.letter
 
     def change_blank(self, new_letter):
-        if self.letter == '_':
+        if self.letter == BLANK:
             self.letter = new_letter.upper()
             self.setText(new_letter)
 
     def change_back(self):
-        self.letter = '_'
-        self.setText('_')
+        self.letter = BLANK
+        self.setText(BLANK)
+
+    def get_letter_and_points(self):
+        return self.letter, self.points
 
     def mousePressEvent(self, event):
         self.old_position = self.pos()
@@ -89,8 +95,3 @@ class Tile(QGraphicsSimpleTextItem):
 
     def set_immovable(self):
         self.setFlag(QGraphicsItem.ItemIsMovable, False)
-
-    # def paint(self, painter, option, widget):
-    #     painter.setBrush(QBrush(Qt.gray))
-    #     painter.drawRect(QRectF(-2, 1, 14, 14))
-    #     QGraphicsSimpleTextItem.paint(self, painter, option, widget)

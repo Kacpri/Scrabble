@@ -62,10 +62,10 @@ class MyWindow(QMainWindow):
         self.ai_widget.setLayout(self.ai_layout)
 
         self.information_label = QLabel('Cześć, jak masz na imię?')
+        self.information_label.setGeometry(200, 250, 100, 50)
+        self.information_label.setWordWrap(True)
 
         self.prompt_label = QLabel('Przedstaw się')
-        self.prompt_label.setGeometry(200, 250, 100, 50)
-        self.prompt_label.setWordWrap(True)
 
         self.text_field = QLineEdit()
         self.confirm_button = QPushButton('Potwierdź')
