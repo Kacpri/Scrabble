@@ -53,3 +53,6 @@ class Sack:
         drawn = self.draw(len(letters_to_exchange))
         self.return_letters(letters_to_exchange)
         return drawn
+
+    def how_many_remain(self):
+        return len(self._letters)
