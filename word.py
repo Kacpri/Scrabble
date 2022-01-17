@@ -4,8 +4,7 @@ from sack import *
 
 
 class Word:
-    def __init__(self, rack, neighbours, word='', points=0, multiplier=1, bonus=0, positions=None, parent=None,
-                 start=None, end=None, added_letters=None):
+    def __init__(self, rack, neighbours, word='', points=0, multiplier=1, bonus=0, positions=None, added_letters=None):
         if not positions:
             positions = []
         if not added_letters:
@@ -19,11 +18,7 @@ class Word:
         self.added_letters = added_letters
         self.rack = rack[:]
         self.neighbours = neighbours
-        self.parent = parent
-        self.children = []
         self.is_valid = True
-        self.start = start
-        self.end = end
 
     def __str__(self):
         return self.word
@@ -48,10 +43,8 @@ class Word:
         return is_word_in_dictionary(self.word)
 
     def create_child(self):
-        child = Word(self.rack, self.neighbours, self.word, self.points, self.multiplier, self.bonus, self.positions[:],
-                     self, self.start, self.end, self.added_letters[:])
-        self.children.append(child)
-        return child
+        return Word(self.rack, self.neighbours, self.word, self.points, self.multiplier, self.bonus, self.positions[:],
+                    self.added_letters[:])
 
     def generate_child(self, letter, position, extra_points, is_blank=False):
         child = self.create_child()
@@ -84,19 +77,15 @@ class Word:
         if not self.word:
             self.word = letter
             self.positions.append(position)
-            self.start = self.end = position
         else:
             self.positions.append(position)
             self.positions.sort()
             index = self.positions.index(position)
             self.word = self.word[:index] + letter + self.word[index:]
-
-        if self.start != self.positions[0]:
-            self.start = self.positions[0]
-            self.check_beginning()
-        elif self.end != self.positions[-1]:
-            self.end = self.positions[-1]
-            self.check_end()
+            if index == 0:
+                self.check_beginning()
+            elif index == len(self.word) - 1:
+                self.check_end()
 
         if not self.is_valid:
             return
