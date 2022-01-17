@@ -2,7 +2,7 @@ from board_utils import *
 from dictionary import BLANK, possible_letters
 from word import Word
 from enum import Enum
-from time import sleep
+from time import sleep, time
 from multiprocessing import Manager, Process
 
 
@@ -38,11 +38,10 @@ def get_functions(direction):
 
 def add_word(words_dict, word):
     if word.is_in_dictionary():
-        words_dict.append(word)
-        # points = word.sum_up()
-        # if not words_dict.get(points):
-        #     words_dict[points] = []
-        # words_dict.get(points).append(word)
+        points = word.sum_up()
+        if not words_dict.get(points):
+            words_dict[points] = []
+        words_dict.get(points).append(word)
 
 
 def check_neighbourhood(tiles_list, coords, words, direction):
@@ -57,6 +56,7 @@ def check_neighbourhood(tiles_list, coords, words, direction):
 
 
 def find_new_word_with_direction(tiles_on_board, rack, direction, neighbourhoods_to_check, neighbours, words):
+    words_by_points = {}
     direct_coords, opposite_coords = get_functions(direction)
     for current in neighbourhoods_to_check:
         offset, max_opposite_length = neighbourhoods_to_check.get(current)
@@ -78,7 +78,7 @@ def find_new_word_with_direction(tiles_on_board, rack, direction, neighbourhoods
                 previous_neighbour_coords = check_neighbourhood(tiles_on_board, current, all_words[direct_level],
                                                                 direct_coords)
             for word in all_words[direct_level]:
-                add_word(words, word)
+                add_word(words_by_points, word)
 
             stop_value = direct_level - offset
             if direct_level > len(rack) / 2:
@@ -100,11 +100,14 @@ def find_new_word_with_direction(tiles_on_board, rack, direction, neighbourhoods
                                                                 opposite_coords)
 
                 for word in all_words[level]:
-                    add_word(words, word)
+                    add_word(words_by_points, word)
 
             if not previous_neighbour_coords.is_valid():
                 break
             current = previous_neighbour_coords
+    for points in sorted(words_by_points, reverse=True):
+        for word in words_by_points.get(points):
+            words.append(word)
 
 
 class AI:
@@ -350,7 +353,7 @@ class AI:
     def choose_word(self):
         self.word = Word([], None)
         for word in self.words:
-            if word.points > self.word.points:
+            if word.sum_up() > self.word.points.sum_up():
                 self.word = word
 
     def remove_invalid_words(self):
@@ -370,7 +373,6 @@ class AI:
 
     # I start no_turn after my move when player is thinking
     def no_turn(self):
-        sleep(0.1)
         self.is_no_turn = True
         # and every word I found
         self.words[:] = []
@@ -383,7 +385,6 @@ class AI:
         # I look for words
         self.find_new_words(self.neighbourhoods_to_check)
         # I allow myself to start turn
-
         self.is_no_turn = False
 
     # I start turn after finishing no_turn if player has placed his word
@@ -392,7 +393,7 @@ class AI:
         self.is_turn = True
         # I wait for no_turn to finish
         while self.is_no_turn:
-            sleep(0.2)
+            sleep(0.1)
         # I forget last word
         self.word = None
 
