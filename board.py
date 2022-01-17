@@ -1,11 +1,6 @@
 import threading
-
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
-
 from dictionary import is_word_in_dictionary
-from tile import Tile
+from tile import *
 from sack import *
 from ai import *
 import time
@@ -18,9 +13,7 @@ class Board(QGraphicsView):
 
         self.ROWS = 15
         self.COLUMNS = 15
-        self.SIZE = 4
 
-        self.SCALE_MANUAL = 10
         self.SHIFT_FOCUS = QPointF(0, 0)
 
         self.squares = {}
@@ -88,7 +81,7 @@ class Board(QGraphicsView):
         index = 0
         for column in range(4, 12):
             coords = Coords(column, 16)
-            if not self.tiles.get(coords) and len(self.tiles_in_rack) < 7:
+            if not self.tiles.get(coords) and len(self.tiles_in_rack) + len(self.tiles_to_exchange) < 7:
                 letter = letters[index]
                 index += 1
 
@@ -259,6 +252,9 @@ class Board(QGraphicsView):
         for tile_coords in self.latest_tiles.values():
             tile_coords.set_immovable()
 
+        if self.sack.how_many_remain() and not self.tiles_in_rack and not self.tiles_to_exchange:
+            self._points += 50
+
         print(self._words)
         print(self._points)
 
@@ -359,6 +355,7 @@ class Board(QGraphicsView):
 
     def on_tile_move(self, tile):
         x, y = tile.coords.get()
+        print(tile.coords)
 
         if y == 15 or y in (16, 17) and not 2 < x < 12 or y < 15 and self.ai.is_turn:
             tile.undo_move()
@@ -424,6 +421,16 @@ class Board(QGraphicsView):
                 square = self.squares[position]
                 square.setZValue(2)
                 bonus_fields.append(square)
+                x, y = position.get()
+                field_name = QGraphicsSimpleTextItem(bonus_field["Name"])
+                font = field_name.font()
+                font.setPointSize(10)
+                fm = QFontMetrics(font)
+                field_name.setFont(font)
+                field_name.setX(x * SQUARE_SIZE + (SQUARE_SIZE - fm.width(bonus_field["Name"])) / 2)
+                field_name.setY(y * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2)
+
+                self.scene.addItem(field_name)
 
             paint_graphic_items(bonus_fields, pen, brush)
 
@@ -439,36 +446,34 @@ class Board(QGraphicsView):
         for column in range(4, 12):
             self.add_square(17, column, pen, brush)
 
-        position = QPointF(64, 712)
+        position = QPointF(34, 690)
         label = QGraphicsSimpleTextItem('Litery do wymiany →')
         label.setPos(position)
         self.scene.addItem(label)
 
     def add_square(self, row, column, pen, brush):
-        height = self.SIZE * self.SCALE_MANUAL
-        width = self.SIZE * self.SCALE_MANUAL
+        height = SQUARE_SIZE
+        width = SQUARE_SIZE
 
         column_distance = column * width
         row_distance = row * height
 
-        screen_offset = 2 * self.SCALE_MANUAL
-
-        x = column_distance + screen_offset
-        y = row_distance + screen_offset
-
+        x = column_distance
+        y = row_distance
         rectangle = QRectF(x, y, width, height)
 
         return self.scene.addRect(rectangle, pen, brush)
 
     def build_labels(self):
+        fm = QFontMetrics(QGraphicsSimpleTextItem().font())
         for number in range(1, 16):
-            letter_position = QPointF(number * 40.0 - 3.0, 0.0)
-            number_position = QPointF(5.0, number * 40.0 - 6.0)
-            letter_label = QGraphicsSimpleTextItem(chr(number + ord('A') - 1))
-            number = str(number)
-            if len(number) < 2:
-                number = ' ' + number
-            number_label = QGraphicsSimpleTextItem(number)
+            letter = chr(number + ord('A') - 1)
+            letter_position = QPointF(number * SQUARE_SIZE - (SQUARE_SIZE + fm.width(letter)) / 2,
+                                      -fm.height() - 2.0)
+            number_position = QPointF(-fm.width(str(number)) - 4.0,
+                                      number * SQUARE_SIZE - (SQUARE_SIZE + fm.height()) / 2)
+            letter_label = QGraphicsSimpleTextItem(letter)
+            number_label = QGraphicsSimpleTextItem(str(number))
             letter_label.setPos(letter_position)
             number_label.setPos(number_position)
             self.scene.addItem(number_label)
@@ -477,16 +482,16 @@ class Board(QGraphicsView):
     def create_bonus_fields(self):
 
         triple_word_bonuses = {
-            "Name": "triple word",
+            "Name": "3S",
             "Pen": QPen(Qt.darkRed, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(255, 0, 0, 180)),
+            "Brush": QBrush(QColor(255, 0, 0, 160)),
             "Positions": triple_word_bonus_coords
         }
         self._triple_word_bonuses = triple_word_bonus_coords
         self.bonus_fields.append(triple_word_bonuses)
 
         double_word_bonuses = {
-            "Name": "double word",
+            "Name": "2S",
             "Pen": QPen(Qt.red, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "Brush": QBrush(QColor(255, 0, 0, 100)),
             "Positions": double_word_bonus_coords
@@ -495,16 +500,16 @@ class Board(QGraphicsView):
         self.bonus_fields.append(double_word_bonuses)
 
         triple_letter_bonuses = {
-            "Name": "triple letter",
+            "Name": "3L",
             "Pen": QPen(Qt.darkBlue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(0, 0, 255, 180)),
+            "Brush": QBrush(QColor(0, 0, 255, 160)),
             "Positions": triple_letter_bonus_coords
         }
         self._triple_letter_bonuses = triple_letter_bonus_coords
         self.bonus_fields.append(triple_letter_bonuses)
 
         double_letter_bonuses = {
-            "Name": "double letter",
+            "Name": "2L",
             "Pen": QPen(Qt.blue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
             "Brush": QBrush(QColor(0, 0, 255, 100)),
             "Positions": double_letter_bonus_coords

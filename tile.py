@@ -1,13 +1,17 @@
 from PyQt5.QtWidgets import *
+from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 
 from coords import Coords
 from dictionary import BLANK
 
+SQUARE_SIZE = 40
+MARGIN = 2
 
-class Tile(QGraphicsSimpleTextItem):
+
+class Tile(QGraphicsRectItem):
     def __init__(self, letter, points, coords, on_position_change=None, parent=None):
-        QGraphicsSimpleTextItem.__init__(self, parent)
+        QGraphicsRectItem.__init__(self, MARGIN, MARGIN, SQUARE_SIZE - 2 * MARGIN, SQUARE_SIZE - 2 * MARGIN, parent)
         if on_position_change:
             self.on_position_change = on_position_change
 
@@ -16,19 +20,23 @@ class Tile(QGraphicsSimpleTextItem):
         self.points = points
         self.letter = letter
 
-        self.offset_top = 22
-        self.offset_right = 30
-        self.square_size = 40
         self.setZValue(3)
+        self.move_restrict_rect = QRectF(SQUARE_SIZE / 2, SQUARE_SIZE / 2, SQUARE_SIZE * 14,
+                                         SQUARE_SIZE * 17)
 
-        self.move_restrict_rect = QRectF(30, 30, 570, 690)
+        self.setPen(QPen(QColor(193, 157, 109, 255)))
+        self.setBrush(QBrush(QColor(222, 184, 135, 255)))
 
-        self.setText(letter)
-        self.setScale(2.5)
-        position = QPointF(coords.x() * self.square_size + self.offset_right,
-                           coords.y() * self.square_size + self.offset_top)
-        self.setPos(position)
+        self.letter_item = QGraphicsSimpleTextItem(letter, self)
+        font = QFont("Helvetica", 20)
+        font_metrics = QFontMetrics(font)
+        height = font_metrics.height()
+        width = font_metrics.width(self.letter)
+        self.letter_item.setX((SQUARE_SIZE - width) / 2 - MARGIN)
+        self.letter_item.setY((SQUARE_SIZE - height) / 2 - MARGIN)
+        self.letter_item.setFont(font)
 
+        self.setPos(QPointF(coords.x() * SQUARE_SIZE, coords.y() * SQUARE_SIZE))
         self.coords = None
         self.update_coords()
 
@@ -37,9 +45,13 @@ class Tile(QGraphicsSimpleTextItem):
 
         # self.setFont(QtGui.QFont())
         points = QGraphicsSimpleTextItem(str(self.points), self)
-        points.setScale(0.5)
-        points.setX(8)
-        points.setY(8)
+        font = QFont("Helvetica", 10)
+        font_metrics = QFontMetrics(font)
+        height = font_metrics.height()
+        width = font_metrics.width(str(self.points))
+        points.setFont(font)
+        points.setX(SQUARE_SIZE - MARGIN - width)
+        points.setY(SQUARE_SIZE - MARGIN - height)
 
     def __str__(self):
         return self.letter
@@ -47,11 +59,11 @@ class Tile(QGraphicsSimpleTextItem):
     def change_blank(self, new_letter):
         if self.letter == BLANK:
             self.letter = new_letter.upper()
-            self.setText(new_letter)
+            self.letter_item.setText(new_letter)
 
     def change_back(self):
         self.letter = BLANK
-        self.setText(BLANK)
+        self.letter_item.setText(BLANK)
 
     def get_letter_and_points(self):
         return self.letter, self.points
@@ -59,27 +71,27 @@ class Tile(QGraphicsSimpleTextItem):
     def mousePressEvent(self, event):
         self.old_position = self.pos()
         self.old_coords = self.coords
-        QGraphicsSimpleTextItem.mousePressEvent(self, event)
+        QGraphicsRectItem.mousePressEvent(self, event)
 
     def mouseMoveEvent(self, event):
         if self.move_restrict_rect.contains(event.scenePos()):
-            QGraphicsSimpleTextItem.mouseMoveEvent(self, event)
+            QGraphicsRectItem.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         current_position = self.pos()
 
-        self.setX(round((self.x() - self.offset_right) / self.square_size) * self.square_size + self.offset_right)
-        self.setY(round((self.y() - self.offset_top) / self.square_size) * self.square_size + self.offset_top)
+        self.setX(round(self.x() / SQUARE_SIZE) * SQUARE_SIZE)
+        self.setY(round(self.y() / SQUARE_SIZE) * SQUARE_SIZE)
 
         self.update_coords()
 
         if current_position.x() is not self.x() or current_position.y() is not self.y():
             self.on_position_change(self)
-        QGraphicsSimpleTextItem.mouseReleaseEvent(self, event)
+        QGraphicsRectItem.mouseReleaseEvent(self, event)
 
     def update_coords(self):
-        x = int((self.x() - self.offset_right) / self.square_size)
-        y = int((self.y() - self.offset_top) / self.square_size)
+        x = int((self.x()) / SQUARE_SIZE)
+        y = int((self.y()) / SQUARE_SIZE)
         self.coords = Coords(x, y)
 
     def move(self, position):
