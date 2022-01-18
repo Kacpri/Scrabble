@@ -1,3 +1,14 @@
+FIRST_COLUMN = 0
+LAST_COLUMN = 14
+FIRST_ROW = 0
+LAST_ROW = 14
+FORBIDDEN_ROW = 15
+RACK_ROW = 16
+EXCHANGE_ROW = 17
+LEFT_RACK_BOUND = 4
+RIGHT_RACK_BOUND = 11
+
+
 class Coords:
     @classmethod
     def central(cls):
@@ -18,7 +29,7 @@ class Coords:
         return f'{x}{self._y + 1}'
 
     def __hash__(self):
-        return hash(self._x * 15 + self._y - 1)
+        return hash(self._x * 15 + self._y)
 
     def __lt__(self, other):
         if self._x > other.x() or self._y > other.y():
@@ -72,17 +83,22 @@ class Coords:
     def on_right(self):
         return Coords(self._x + 1, self._y)
 
-    def is_in_rack(self):
-        return self._y == 16
-
-    def is_in_exchange_zone(self):
-        return self._y == 17
-
     def is_same_row(self, coords):
         return self._y == coords.y()
 
     def is_same_column(self, coords):
         return self._x == coords.x()
 
+    def is_in_rack(self):
+        return self._y == RACK_ROW and LEFT_RACK_BOUND <= self._x <= RIGHT_RACK_BOUND
+
+    def is_in_exchange_zone(self):
+        return self._y == EXCHANGE_ROW and LEFT_RACK_BOUND <= self._x <= RIGHT_RACK_BOUND
+
+    def is_on_board(self):
+        return FIRST_COLUMN <= self._x <= LAST_COLUMN and FIRST_ROW <= self._y <= LAST_ROW
+
     def is_valid(self):
-        return 0 <= self._x < 15 and 0 <= self._y < 15
+        return self.is_in_rack() or self.is_in_exchange_zone() or self.is_on_board()
+
+

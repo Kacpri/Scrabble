@@ -135,4 +135,3 @@ def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length
                 word = word.lower()
                 if is_word_in_dictionary(word):
                     words[length + len(on_board)].add(word)
-    print(words)

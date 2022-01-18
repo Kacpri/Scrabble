@@ -8,13 +8,12 @@ import random
 
 
 class Board(QGraphicsView):
-    def __init__(self, score, player_clock, ai_clock, set_comment, text_field, set_prompt, confirm_button):
+    def __init__(self, score, player_clock, ai_clock, set_comment, text_field, set_prompt, confirm_button,
+                 end_turn_button, exchange_button):
         QGraphicsView.__init__(self)
 
         self.ROWS = 15
         self.COLUMNS = 15
-
-        self.SHIFT_FOCUS = QPointF(0, 0)
 
         self.squares = {}
         self.bonus_fields = []
@@ -26,23 +25,30 @@ class Board(QGraphicsView):
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
+        self.scene.setSceneRect(-SQUARE_SIZE / 2, -SQUARE_SIZE / 2, SQUARE_SIZE * 16, SQUARE_SIZE * 19)
+        self.setMinimumSize(int(self.scene.width()) + SQUARE_SIZE, int(self.scene.height()) + SQUARE_SIZE)
+        self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+        self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setScene(self.scene)
         self.player_clock = player_clock
         self.ai_clock = ai_clock
         self.set_comment = set_comment
         self.set_prompt = set_prompt
+        self.exchange_button = exchange_button
+        self.end_turn_button = end_turn_button
         self.confirm_button = confirm_button
         self.text_field = text_field
 
         # parameters visible for AI
-        # score represents total score of both players
-        self.score = score
-        # latest tiles represent tiles added in last turn
-        self.latest_tiles = None
         # tiles represent all tiles on board
         self.tiles = None
         # sack represents sack
         self.sack = None
+
+        # score represents total score of both players
+        self.score = score
+        # latest tiles represent tiles added in last turn
+        self.latest_tiles = None
         self.tiles_in_rack = None
         self.tiles_to_exchange = None
         self._total_points = None
@@ -50,6 +56,7 @@ class Board(QGraphicsView):
         self._words = None
         self._is_connected = False
         self.ai = None
+        self.ai_thread = None
 
     def prepare_game(self):
         self.sack = Sack()
@@ -68,24 +75,26 @@ class Board(QGraphicsView):
         # self.ai_ = bool(random.getrandbits(1))
         self.ai.is_turn = False
         self.add_letters_to_rack()
-        self.player_clock.start()
+        self.ai.finished.connect(self.end_of_ai_turn)
+        self.ai.start()
         if self.ai.is_turn:
             self.set_comment('Przeciwnik myśli')
-            ai_thread = threading.Thread(target=self.ai.turn)
-            ai_thread.start()
+
+        else:
+            self.player_clock.start()
         return self.ai.is_turn
 
     def add_letters_to_rack(self, letters=None):
         if not letters:
             letters = self.sack.draw(7 - len(self.tiles_in_rack) - len(self.tiles_to_exchange))
         index = 0
-        for column in range(4, 12):
-            coords = Coords(column, 16)
+        for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND):
+            coords = Coords(column, RACK_ROW)
             if not self.tiles.get(coords) and len(self.tiles_in_rack) + len(self.tiles_to_exchange) < 7:
                 letter = letters[index]
                 index += 1
 
-                coords = Coords(column, 16)
+                coords = Coords(column, RACK_ROW)
                 points = get_value(letter)
                 tile = Tile(letter, points, coords, self.on_tile_move)
                 self.scene.addItem(tile)
@@ -118,7 +127,8 @@ class Board(QGraphicsView):
         self.latest_tiles.clear()
         self.add_letters_to_rack(new_letters + letters_on_board)
 
-        # self.ai.turn()
+        self.score.add_points('Gracz', 0)
+        self.start_of_ai_turn()
 
     def resign(self):
         for tile in self.tiles.values():
@@ -126,20 +136,30 @@ class Board(QGraphicsView):
 
         self.prepare_game()
 
-    def wait_for_ai_move(self):
-        time.sleep(0.1)
-        while self.ai.is_turn:
-            time.sleep(0.1)
+    def start_of_ai_turn(self):
+        self.player_clock.stop()
+        self.ai_clock.start()
+        self.ai.is_turn = True
+        self.exchange_button.setDisabled(True)
+        self.end_turn_button.setDisabled(True)
+
+    def end_of_ai_turn(self):
         self.ai_clock.stop()
-        points = self.ai.word.sum_up()
-        self.set_comment(f'Komputer ułożył słowo {self.ai.word} i uzyskał {points} punktów')
-        self.score.add_points('AI', points)
-        for letter, points, coords in self.ai.word.added_letters:
+        self.end_turn_button.setDisabled(False)
+        self.exchange_button.setDisabled(False)
+
+        word = self.ai.word
+
+        for letter, points, coords in word.added_letters:
             tile = Tile(letter, points, coords)
             tile.set_immovable()
             self.tiles[coords] = tile
             self.scene.addItem(tile)
-            self.scene.update()
+            tile.update()
+
+        self.set_comment(f'Komputer ułożył słowo {word} i uzyskał {word.sum_up()} punktów')
+        self.score.add_points('AI', word.sum_up())
+
         self.player_clock.start()
 
     def end_turn(self):
@@ -255,18 +275,12 @@ class Board(QGraphicsView):
         if self.sack.how_many_remain() and not self.tiles_in_rack and not self.tiles_to_exchange:
             self._points += 50
 
-        print(self._words)
-        print(self._points)
+        self.set_comment(f'ułożyłeś słowa {self._words} i uzyskałeś {self._points} punktów')
 
         self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
 
-        self.ai_clock.start()
-        ai_thread = threading.Thread(target=self.ai.turn)
-        ai_thread.start()
-
-        wait_for_ai_thread = threading.Thread(target=self.wait_for_ai_move)
-        wait_for_ai_thread.start()
+        self.start_of_ai_turn()
 
         self.latest_tiles.clear()
 
@@ -335,29 +349,30 @@ class Board(QGraphicsView):
         self.tiles[tile.coords] = tile
         self.tiles[other_tile.coords] = other_tile
 
-        if tile.coords in self.latest_tiles:
-            self.latest_tiles[tile.coords] = tile
-
-        elif tile.coords in self.tiles_in_rack:
+        if tile.coords.is_in_rack():
             self.tiles_in_rack[tile.coords] = tile
 
-        elif tile.coords in self.tiles_to_exchange:
+        elif tile.coords.is_in_exchange_zone():
             self.tiles_to_exchange[tile.coords] = tile
 
-        if other_tile.coords in self.latest_tiles:
+        else:
+            self.latest_tiles[tile.coords] = tile
+
+        if other_tile.coords.is_in_rack():
+            self.tiles_in_rack[other_tile.coords] = other_tile
+
+        elif other_tile.coords.is_in_exchange_zone():
+            self.tiles_in_rack[other_tile.coords] = other_tile
+
+        else:
             self.latest_tiles[other_tile.coords] = other_tile
 
-        elif other_tile.coords in self.tiles_in_rack:
-            self.tiles_in_rack[other_tile.coords] = other_tile
-
-        elif other_tile.coords in self.tiles_to_exchange:
-            self.tiles_in_rack[other_tile.coords] = other_tile
-
     def on_tile_move(self, tile):
-        x, y = tile.coords.get()
-        print(tile.coords)
-
-        if y == 15 or y in (16, 17) and not 2 < x < 12 or y < 15 and self.ai.is_turn:
+        if not tile.coords.is_valid():
+            tile.undo_move()
+            return
+        if tile.coords.is_on_board() and self.ai.is_turn:
+            self.set_comment('Ruch przeciwnika')
             tile.undo_move()
             return
 
@@ -377,19 +392,19 @@ class Board(QGraphicsView):
 
         else:
             del self.tiles[tile.old_coords]
-            if tile.old_coords.y() == 16:
+            if tile.old_coords.is_in_rack():
                 del self.tiles_in_rack[tile.old_coords]
 
-            elif tile.old_coords.y() == 17:
+            elif tile.old_coords.is_in_exchange_zone():
                 del self.tiles_to_exchange[tile.old_coords]
 
             else:
                 del self.latest_tiles[tile.old_coords]
 
             self.tiles[tile.coords] = tile
-            if y == 16:
+            if tile.coords.is_in_rack():
                 self.tiles_in_rack[tile.coords] = tile
-            elif y == 17:
+            elif tile.coords.is_in_exchange_zone():
                 self.tiles_to_exchange[tile.coords] = tile
             else:
                 self.latest_tiles[tile.coords] = tile
@@ -437,14 +452,14 @@ class Board(QGraphicsView):
     def build_rack(self):
         brush = QBrush(Qt.white)
         pen = QPen(Qt.black, 1, Qt.SolidLine)
-        for column in range(4, 12):
-            self.add_square(16, column, pen, brush)
+        for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND + 1):
+            self.add_square(RACK_ROW, column, pen, brush)
 
     def build_exchange_zone(self):
         brush = QBrush(Qt.white)
         pen = QPen(Qt.black, 1, Qt.SolidLine)
-        for column in range(4, 12):
-            self.add_square(17, column, pen, brush)
+        for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND + 1):
+            self.add_square(EXCHANGE_ROW, column, pen, brush)
 
         position = QPointF(34, 690)
         label = QGraphicsSimpleTextItem('Litery do wymiany →')
@@ -466,16 +481,19 @@ class Board(QGraphicsView):
 
     def build_labels(self):
         fm = QFontMetrics(QGraphicsSimpleTextItem().font())
-        for number in range(1, 16):
-            letter = chr(number + ord('A') - 1)
-            letter_position = QPointF(number * SQUARE_SIZE - (SQUARE_SIZE + fm.width(letter)) / 2,
-                                      -fm.height() - 2.0)
-            number_position = QPointF(-fm.width(str(number)) - 4.0,
-                                      number * SQUARE_SIZE - (SQUARE_SIZE + fm.height()) / 2)
-            letter_label = QGraphicsSimpleTextItem(letter)
-            number_label = QGraphicsSimpleTextItem(str(number))
-            letter_label.setPos(letter_position)
+        for count in range(LAST_ROW + 1):
+            number = str(count + 1)
+            number_label = QGraphicsSimpleTextItem(number)
+            number_position = QPointF(-fm.width(number) - 2 * MARGIN,
+                                      count * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2)
             number_label.setPos(number_position)
+
+            letter = chr(count + ord('A'))
+            letter_label = QGraphicsSimpleTextItem(letter)
+            letter_position = QPointF(count * SQUARE_SIZE + (SQUARE_SIZE - fm.width(letter)) / 2,
+                                      -fm.height() - MARGIN)
+            letter_label.setPos(letter_position)
+
             self.scene.addItem(number_label)
             self.scene.addItem(letter_label)
 

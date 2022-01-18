@@ -21,8 +21,7 @@ class Tile(QGraphicsRectItem):
         self.letter = letter
 
         self.setZValue(3)
-        self.move_restrict_rect = QRectF(SQUARE_SIZE / 2, SQUARE_SIZE / 2, SQUARE_SIZE * 14,
-                                         SQUARE_SIZE * 17)
+        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15, SQUARE_SIZE * 18)
 
         self.setPen(QPen(QColor(193, 157, 109, 255)))
         self.setBrush(QBrush(QColor(222, 184, 135, 255)))
@@ -42,6 +41,8 @@ class Tile(QGraphicsRectItem):
 
         self.old_position = None
         self.old_coords = None
+
+        self.is_new = True
 
         # self.setFont(QtGui.QFont())
         points = QGraphicsSimpleTextItem(str(self.points), self)
@@ -69,6 +70,7 @@ class Tile(QGraphicsRectItem):
         return self.letter, self.points
 
     def mousePressEvent(self, event):
+        self.setZValue(4)
         self.old_position = self.pos()
         self.old_coords = self.coords
         QGraphicsRectItem.mousePressEvent(self, event)
@@ -87,6 +89,8 @@ class Tile(QGraphicsRectItem):
 
         if current_position.x() is not self.x() or current_position.y() is not self.y():
             self.on_position_change(self)
+
+        self.setZValue(3)
         QGraphicsRectItem.mouseReleaseEvent(self, event)
 
     def update_coords(self):

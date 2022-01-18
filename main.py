@@ -73,11 +73,6 @@ class MyWindow(QMainWindow):
         self.text_field.returnPressed.connect(self.confirmed)
         self.confirm_button.clicked.connect(self.text_field.returnPressed)
 
-        self.board = Board(self.score, self.player_clock, self.ai_clock, self.information_label.setText,
-                           self.text_field, self.prompt_label.setText, self.confirm_button)
-        # self.board.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-        # self.board.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
         self.end_turn_button = QPushButton('Zakończ ruch')
 
         self.end_turn_button.setDisabled(True)
@@ -92,13 +87,17 @@ class MyWindow(QMainWindow):
         self.resign_button = QPushButton('Poddaj się')
         self.resign_button.setDisabled(True)
 
-        self.end_turn_button.clicked.connect(self.board.end_turn)
+        self.end_turn_button.clicked.connect(self.end_turn_button_clicked)
 
-        self.exchange_letters_button.clicked.connect(self.board.exchange_letters)
+        self.exchange_letters_button.clicked.connect(self.exchange_letters_button_clicked)
 
         self.start_button.clicked.connect(self.start_button_clicked)
 
         self.resign_button.clicked.connect(self.resign_button_clicked)
+
+        self.board = Board(self.score, self.player_clock, self.ai_clock, self.information_label.setText,
+                           self.text_field, self.prompt_label.setText, self.confirm_button, self.end_turn_button,
+                           self.exchange_letters_button)
 
         self.left_layout.addWidget(self.player_widget)
         self.left_layout.addWidget(self.ai_widget)
@@ -127,11 +126,6 @@ class MyWindow(QMainWindow):
         self.addDockWidget(Qt.RightDockWidgetArea, self.table_dock_widget)
         self.addDockWidget(Qt.LeftDockWidgetArea, self.left_dock_widget)
 
-        width = self.board.width() + self.table_dock_widget.width() + self.left_dock_widget.width()
-        height = int(self.board.height() * 1.6)
-
-        self.setFixedSize(width, height)
-
     def confirmed(self):
         new_name = self.text_field.text()
         if not new_name:
@@ -148,6 +142,12 @@ class MyWindow(QMainWindow):
         self.table.set_headers()
         self.information_label.setText(f'Cześć {self.player_name}!')
         self.text_field.returnPressed.disconnect(self.confirmed)
+
+    def exchange_letters_button_clicked(self):
+        self.board.exchange_letters()
+
+    def end_turn_button_clicked(self):
+        self.board.end_turn()
 
     def start_button_clicked(self):
         self.start_button.setDisabled(True)
@@ -170,6 +170,7 @@ class MyWindow(QMainWindow):
         self.start_button.setDisabled(False)
         self.end_turn_button.setDisabled(True)
         self.exchange_letters_button.setDisabled(True)
+        self.table.init_rows()
         self.resign_button.setDisabled(True)
 
 

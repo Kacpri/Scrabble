@@ -1,4 +1,4 @@
-from coords import Coords
+from coords import *
 
 
 def paint_graphic_item(graphic_item, pen=None, brush=None):
