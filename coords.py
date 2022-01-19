@@ -100,5 +100,3 @@ class Coords:
 
     def is_valid(self):
         return self.is_in_rack() or self.is_in_exchange_zone() or self.is_on_board()
-
-

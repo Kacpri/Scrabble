@@ -17,7 +17,7 @@ class Directions(Enum):
         return Directions(-self.value)
 
     def perpendicular(self):
-        return Directions(abs(self.value % 2) + 1)
+        return Directions(self.value % 2 + 1)
 
     def get_functions(self):
         if self == Directions.up:
@@ -202,13 +202,13 @@ class AI(QThread):
         neighbours[previous_neighbour_coords] = (possible_letters(pre_pattern), start_points + middle_points)
         neighbours[next_neighbour_coords] = (possible_letters(post_pattern), middle_points + end_points)
 
-    def find_vertical_neighbours(self, tile_coords):
+    def update_vertical_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, Directions.left, self.neighbours[Directions.down])
 
-    def find_horizontal_neighbours(self, tile_coords):
+    def update_horizontal_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, Directions.up, self.neighbours[Directions.right])
 
-    def find_new_neighbours(self):
+    def update_neighbours(self):
         first_tile_coords = None
         for tile_coords in self.new_tiles:
 
@@ -220,13 +220,13 @@ class AI(QThread):
 
             if not first_tile_coords:
                 first_tile_coords = tile_coords
-                self.find_vertical_neighbours(tile_coords)
-                self.find_horizontal_neighbours(tile_coords)
+                self.update_vertical_neighbours(tile_coords)
+                self.update_horizontal_neighbours(tile_coords)
             else:
                 if first_tile_coords.is_same_column(tile_coords):
-                    self.find_vertical_neighbours(tile_coords)
+                    self.update_vertical_neighbours(tile_coords)
                 else:
-                    self.find_horizontal_neighbours(tile_coords)
+                    self.update_horizontal_neighbours(tile_coords)
 
     def add_neighbourhood(self, neighbourhood, direction, offset=0, max_opposite_length=3):
         self.neighbourhoods_to_check[direction][neighbourhood] = (offset, max_opposite_length)
@@ -312,7 +312,7 @@ class AI(QThread):
         self.words[:] = []
         self.words_by_points.clear()
         # I search for neighbours around placed word
-        self.find_new_neighbours()
+        self.update_neighbours()
         # I remove coords of tiles of the word I placed
         self.remove_latest_from_neighbourhoods()
         # I search for neighbours around placed word
@@ -333,7 +333,7 @@ class AI(QThread):
 
         self.remove_latest_from_neighbourhoods()
 
-        self.find_new_neighbours()
+        self.update_neighbours()
 
         self.prepare_neighbourhoods_to_check()
 
