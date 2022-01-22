@@ -1,8 +1,8 @@
 from itertools import permutations
-from sack import values_without_blank
+from sack import Sack
+from constants import BLANK
 import os
 
-BLANK = '_'
 filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
 directory = "text_files/"
 
@@ -65,7 +65,7 @@ sevens = load_groups(7)
 def is_word_in_dictionary(word):
     word = word.lower()
     if BLANK in word:
-        for letter in values_without_blank():
+        for letter in Sack.values_without_blank():
             letter = letter.lower()
             new_word = word.replace(BLANK, letter, 1)
             if BLANK in new_word:
@@ -98,7 +98,7 @@ def possible_words_with_blank(word, find_letters=False):
     if BLANK not in word:
         return word
     words = []
-    for letter in values_without_blank():
+    for letter in Sack.values_without_blank():
         letter = letter.lower()
         new_word = word.replace(BLANK, letter, 1)
         if BLANK in new_word:

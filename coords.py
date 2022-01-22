@@ -1,24 +1,21 @@
-FIRST_COLUMN = 0
-LAST_COLUMN = 14
-FIRST_ROW = 0
-LAST_ROW = 14
-FORBIDDEN_ROW = 15
-RACK_ROW = 16
-EXCHANGE_ROW = 17
-LEFT_RACK_BOUND = 4
-RIGHT_RACK_BOUND = 11
+from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND
+from constants import FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, LAST_ROW
 
 
 class Coords:
     @classmethod
     def central(cls):
-        return Coords(7, 7)
+        return cls(7, 7)
 
     @classmethod
     def from_notation(cls, notation):
         x = ord(notation[0]) - ord('A')
         y = int(notation[1:]) - 1
-        return Coords(x, y)
+        return cls(x, y)
+
+    @classmethod
+    def algebraic_notations_to_coords(cls, algebraic_notations):
+        return list(map(cls.from_notation, algebraic_notations))
 
     def __init__(self, x, y):
         self._x = x

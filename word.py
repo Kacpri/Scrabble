@@ -63,7 +63,7 @@ class Word:
                     continue
                 extra_points = neighbours[1]
             if letter == BLANK:
-                for new_letter in values_without_blank():
+                for new_letter in Sack.values_without_blank():
                     child = self.generate_child(new_letter, position, extra_points, True)
                     if child:
                         children.append(child)
@@ -90,7 +90,7 @@ class Word:
         if not self.is_valid:
             return
 
-        letter_points = get_value(letter)
+        letter_points = Sack.get_value(letter)
         if is_blank:
             letter_points = 0
 
@@ -120,5 +120,14 @@ class Word:
         if len(self.added_letters) == 7:
             self.bonus += 50
 
+    def lower(self):
+        return self.word.lower()
+
     def sum_up(self):
         return self.points * self.multiplier + self.bonus
+
+    def possible_letters_on_the_beginning(self, length=1):
+        return possible_words_with_blank(length * '_' + self.word, True)
+
+    def possible_letters_on_the_end(self, length=1):
+        return possible_words_with_blank(self.word + length * '_', True)

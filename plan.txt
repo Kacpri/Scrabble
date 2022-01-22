@@ -11,16 +11,16 @@ wyszukiwanie słów przez AI
 Tablica wyników
 wymiana blanka (bez GUI)
 README.md
-
-
-DO ZROBIENIA
 doliczenie liter spoza głównego słowa (AI)
-ograniczenie liczby sąsiadów (w celu uniknięcia powtórzonych słów)
 wybór litery za blank - GUI
 wymiana liter - GUI
 testowanie wydajności z użyciem piątek, szóstek i siódemek
-Minmax - wybór najlepszego słowa pod względem taktycznym
 komunikaty
+
+
+DO ZROBIENIA
+ograniczenie liczby sąsiadów (w celu uniknięcia powtórzonych słów)
+Minmax - wybór najlepszego słowa pod względem taktycznym
 PRACA PISEMNA
 
 dostosowanie języka do standardów
@@ -28,4 +28,6 @@ dokumentacja
 
 jeśli sąsiad wyszukuje prostopadle, to offset + 1
 
-
+wyszukiwanie najlepszego słowa powinno uwzględnić:
+-możliwość dołożenia przez gracza litery na początku (końcu) tego słowa, w celu ułożenia słowa prostopadle do niego
+     algorytm posiada własną kopię woreczka, dzięki której wie, jakie litery pozostały jeszcze w woreczku lub są

@@ -4,12 +4,14 @@ from PyQt5.QtCore import *
 
 from coords import Coords
 from dictionary import BLANK
-
-SQUARE_SIZE = 40
-MARGIN = 2
+from constants import SQUARE_SIZE, MARGIN
 
 
 class Tile(QGraphicsRectItem):
+    DARK_BROWN = QColor(165, 131, 85, 255)
+    BROWN = QColor(193, 157, 109, 255)
+    LIGHT_BROWN = QColor(222, 184, 135, 255)
+
     def __init__(self, letter, points, coords, on_position_change=None, parent=None):
         QGraphicsRectItem.__init__(self, MARGIN, MARGIN, SQUARE_SIZE - 2 * MARGIN, SQUARE_SIZE - 2 * MARGIN, parent)
         if on_position_change:
@@ -23,8 +25,8 @@ class Tile(QGraphicsRectItem):
         self.setZValue(3)
         self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15, SQUARE_SIZE * 18)
 
-        self.setPen(QPen(QColor(193, 157, 109, 255)))
-        self.setBrush(QBrush(QColor(222, 184, 135, 255)))
+        self.setPen(QPen(Tile.BROWN))
+        self.setBrush(QBrush(Tile.LIGHT_BROWN))
 
         self.letter_item = QGraphicsSimpleTextItem(letter, self)
         font = QFont("Helvetica", 20)
@@ -42,9 +44,8 @@ class Tile(QGraphicsRectItem):
         self.old_position = None
         self.old_coords = None
 
-        self.is_new = True
+        self.is_placed = False
 
-        # self.setFont(QtGui.QFont())
         points = QGraphicsSimpleTextItem(str(self.points), self)
         font = QFont("Helvetica", 10)
         font_metrics = QFontMetrics(font)
@@ -109,5 +110,8 @@ class Tile(QGraphicsRectItem):
     def swap_with_other(self, other):
         other.move(self.old_position)
 
-    def set_immovable(self):
+    def place(self):
+        self.setBrush(QBrush(Tile.BROWN))
+        self.setPen(QPen(Tile.DARK_BROWN))
         self.setFlag(QGraphicsItem.ItemIsMovable, False)
+        self.is_placed = True

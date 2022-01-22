@@ -1,4 +1,6 @@
 import sys
+import time
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
@@ -14,7 +16,7 @@ class MyWindow(QMainWindow):
         self.player_name = 'Gracz'
         self.score = Score()
 
-        self.font = QFont('Calibri', 15)
+        self.font = QFont('Times', 15)
 
         self.table = TableView(self.score, 23, 2)
         self.table.setFixedWidth(230)
@@ -30,25 +32,19 @@ class MyWindow(QMainWindow):
         self.left_layout = QVBoxLayout()
 
         self.player_label = QLabel('Gracz')
-        self.player_label.setText('Gracz')
-        self.player_label.setAlignment(Qt.AlignLeft)
         # player_label.setFont(font)
 
         self.player_clock = Clock()
         self.player_clock.set_time(15)
-        self.player_clock.setAlignment(Qt.AlignRight)
         self.player_clock.setFont(self.font)
 
         self.player_widget = QWidget()
         self.player_layout = QHBoxLayout()
-        self.player_layout.addWidget(self.player_label)
-        self.player_layout.addWidget(self.player_clock)
+        self.player_layout.addWidget(self.player_label, alignment=Qt.AlignLeft)
+        self.player_layout.addWidget(self.player_clock, alignment=Qt.AlignRight)
         self.player_widget.setLayout(self.player_layout)
 
         self.ai_label = QLabel('AI')
-        self.ai_label.setText('AI')
-        self.ai_label.setAlignment(Qt.AlignLeft)
-        # ai_label.setFont(font)
 
         self.ai_clock = Clock()
         self.ai_clock.set_time(15)
@@ -57,13 +53,30 @@ class MyWindow(QMainWindow):
 
         self.ai_widget = QWidget()
         self.ai_layout = QHBoxLayout()
-        self.ai_layout.addWidget(self.ai_label)
-        self.ai_layout.addWidget(self.ai_clock)
+        self.ai_layout.addWidget(self.ai_label, alignment=Qt.AlignLeft)
+        self.ai_layout.addWidget(self.ai_clock, alignment=Qt.AlignRight)
         self.ai_widget.setLayout(self.ai_layout)
 
+        self.sack_label = QLabel('Litery w worku:')
+        self.sack_counter = QLabel('100')
+        self.sack_counter.setFont(self.font)
+
+        self.sack_widget = QWidget()
+        self.sack_layout = QHBoxLayout()
+        self.sack_layout.addWidget(self.sack_label, alignment=Qt.AlignLeft)
+        self.sack_layout.addWidget(self.sack_counter, alignment=Qt.AlignRight)
+        self.sack_widget.setLayout(self.sack_layout)
+
+        self.information_area = self.scrollArea = QScrollArea()
+        self.information_area.setWidgetResizable(True)
+        self.information_area.setGeometry(QRect(0, 0, 200, 200))
+
         self.information_label = QLabel('Cześć, jak masz na imię?')
-        self.information_label.setGeometry(200, 250, 100, 50)
+        self.information_label.setAlignment(Qt.AlignBottom)
         self.information_label.setWordWrap(True)
+        self.information_label.setMargin(5)
+
+        self.information_area.setWidget(self.information_label)
 
         self.prompt_label = QLabel('Przedstaw się')
 
@@ -95,19 +108,18 @@ class MyWindow(QMainWindow):
 
         self.resign_button.clicked.connect(self.resign_button_clicked)
 
-        self.board = Board(self.score, self.player_clock, self.ai_clock, self.information_label.setText,
+        self.board = Board(self.score, self.player_clock, self.ai_clock, self.add_info,
                            self.text_field, self.prompt_label.setText, self.confirm_button, self.end_turn_button,
-                           self.exchange_letters_button)
+                           self.exchange_letters_button, self.sack_counter)
 
         self.left_layout.addWidget(self.player_widget)
         self.left_layout.addWidget(self.ai_widget)
-        self.left_layout.addStretch()
-        self.left_layout.addWidget(self.information_label)
-        self.left_layout.addStretch()
+        self.left_layout.addWidget(self.sack_widget)
+        self.left_layout.addWidget(self.information_area)
         self.left_layout.addWidget(self.prompt_label)
         self.left_layout.addWidget(self.text_field)
         self.left_layout.addWidget(self.confirm_button)
-        self.left_layout.addWidget(self.start_button, 100)
+        self.left_layout.addWidget(self.start_button)
         self.left_layout.addWidget(self.end_turn_button)
         self.left_layout.addWidget(self.exchange_letters_button)
         self.left_layout.addWidget(self.resign_button)
@@ -129,7 +141,7 @@ class MyWindow(QMainWindow):
     def confirmed(self):
         new_name = self.text_field.text()
         if not new_name:
-            self.information_label.setText('Musisz coś wpisać!')
+            self.add_info('Musisz coś wpisać!')
             return
         self.player_name = new_name
         self.player_label.setText(self.player_name)
@@ -140,8 +152,15 @@ class MyWindow(QMainWindow):
         self.prompt_label.clear()
         self.score.set_player_names(['AI', self.player_name])
         self.table.set_headers()
-        self.information_label.setText(f'Cześć {self.player_name}!')
+        self.add_info(f'Cześć {self.player_name}!')
         self.text_field.returnPressed.disconnect(self.confirmed)
+
+    def add_info(self, info):
+        current = self.information_label.text()
+        new = current + '\n\n' + info
+        self.information_label.setText(new)
+        self.information_label.update()
+        self.information_area.verticalScrollBar().setValue(10000000)
 
     def exchange_letters_button_clicked(self):
         self.board.exchange_letters()
