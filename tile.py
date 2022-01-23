@@ -5,6 +5,7 @@ from PyQt5.QtCore import *
 from coords import Coords
 from dictionary import BLANK
 from constants import SQUARE_SIZE, MARGIN
+from colors import YELLOW, YELLOW2, SEA_GREEN
 
 
 class Tile(QGraphicsRectItem):
@@ -12,7 +13,7 @@ class Tile(QGraphicsRectItem):
     BROWN = QColor(193, 157, 109, 255)
     LIGHT_BROWN = QColor(222, 184, 135, 255)
 
-    def __init__(self, letter, points, coords, on_position_change=None, parent=None):
+    def __init__(self, letter, points, coords, scale, on_position_change=None, parent=None):
         QGraphicsRectItem.__init__(self, MARGIN, MARGIN, SQUARE_SIZE - 2 * MARGIN, SQUARE_SIZE - 2 * MARGIN, parent)
         if on_position_change:
             self.on_position_change = on_position_change
@@ -22,22 +23,26 @@ class Tile(QGraphicsRectItem):
         self.points = points
         self.letter = letter
 
+        self.scale = scale
+        self.setScale(scale)
         self.setZValue(3)
-        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15, SQUARE_SIZE * 18)
+        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
-        self.setPen(QPen(Tile.BROWN))
-        self.setBrush(QBrush(Tile.LIGHT_BROWN))
+        self.setPen(QPen(YELLOW, 0))
+        self.setBrush(QBrush(YELLOW))
 
         self.letter_item = QGraphicsSimpleTextItem(letter, self)
-        font = QFont("Helvetica", 20)
-        font_metrics = QFontMetrics(font)
+        self.font = QFont("Verdana", 20)
+        font_metrics = QFontMetrics(self.font)
         height = font_metrics.height()
         width = font_metrics.width(self.letter)
+
         self.letter_item.setX((SQUARE_SIZE - width) / 2 - MARGIN)
         self.letter_item.setY((SQUARE_SIZE - height) / 2 - MARGIN)
-        self.letter_item.setFont(font)
+        self.letter_item.setFont(self.font)
+        self.letter_item.setBrush(QBrush(SEA_GREEN))
 
-        self.setPos(QPointF(coords.x() * SQUARE_SIZE, coords.y() * SQUARE_SIZE))
+        self.setPos(coords.x() * SQUARE_SIZE * scale, coords.y() * SQUARE_SIZE * scale)
         self.coords = None
         self.update_coords()
 
@@ -46,17 +51,25 @@ class Tile(QGraphicsRectItem):
 
         self.is_placed = False
 
-        points = QGraphicsSimpleTextItem(str(self.points), self)
-        font = QFont("Helvetica", 10)
-        font_metrics = QFontMetrics(font)
-        height = font_metrics.height()
-        width = font_metrics.width(str(self.points))
-        points.setFont(font)
-        points.setX(SQUARE_SIZE - MARGIN - width)
-        points.setY(SQUARE_SIZE - MARGIN - height)
+        if letter != BLANK:
+            points = QGraphicsSimpleTextItem(str(self.points), self)
+            font = QFont("Verdana", 10)
+            font_metrics = QFontMetrics(font)
+            height = font_metrics.height()
+            width = font_metrics.width(str(self.points))
+            points.setFont(font)
+            points.setBrush(QBrush(SEA_GREEN))
+            points.setX(SQUARE_SIZE - MARGIN - width)
+            points.setY(SQUARE_SIZE - MARGIN - height)
 
     def __str__(self):
         return self.letter
+
+    def resize(self, scale):
+        self.scale = scale
+        self.setScale(scale)
+        self.setPos(self.coords.x() * SQUARE_SIZE * scale, self.coords.y() * SQUARE_SIZE * scale)
+        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
     def change_blank(self, new_letter):
         if self.letter == BLANK:
@@ -83,8 +96,8 @@ class Tile(QGraphicsRectItem):
     def mouseReleaseEvent(self, event):
         current_position = self.pos()
 
-        self.setX(round(self.x() / SQUARE_SIZE) * SQUARE_SIZE)
-        self.setY(round(self.y() / SQUARE_SIZE) * SQUARE_SIZE)
+        self.setX(round(self.x() / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
+        self.setY(round(self.y() / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
 
         self.update_coords()
 
@@ -95,8 +108,8 @@ class Tile(QGraphicsRectItem):
         QGraphicsRectItem.mouseReleaseEvent(self, event)
 
     def update_coords(self):
-        x = int((self.x()) / SQUARE_SIZE)
-        y = int((self.y()) / SQUARE_SIZE)
+        x = round(self.x() / SQUARE_SIZE / self.scale)
+        y = round(self.y() / SQUARE_SIZE / self.scale)
         self.coords = Coords(x, y)
 
     def move(self, position):
@@ -111,7 +124,7 @@ class Tile(QGraphicsRectItem):
         other.move(self.old_position)
 
     def place(self):
-        self.setBrush(QBrush(Tile.BROWN))
-        self.setPen(QPen(Tile.DARK_BROWN))
+        self.setBrush(QBrush(YELLOW2))
+        self.setPen(QPen(YELLOW2, 0))
         self.setFlag(QGraphicsItem.ItemIsMovable, False)
         self.is_placed = True

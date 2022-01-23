@@ -1,5 +1,5 @@
 import sys
-import time
+import threading
 
 from PyQt5.QtWidgets import *
 from PyQt5.QtGui import *
@@ -8,6 +8,7 @@ from board import Board
 from table_view import TableView
 from score import Score
 from clock import Clock
+from time import sleep
 
 
 class MyWindow(QMainWindow):
@@ -16,14 +17,14 @@ class MyWindow(QMainWindow):
         self.player_name = 'Gracz'
         self.score = Score()
 
-        self.font = QFont('Times', 15)
+        self.font = QFont('Verdana', 15)
 
-        self.table = TableView(self.score, 23, 2)
-        self.table.setFixedWidth(230)
+        self.table = TableView(self.score, 30, 2)
+        self.table.setFixedWidth(242)
 
         self.table_dock_widget = QDockWidget('Wyniki')
         self.table_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
-        self.table_dock_widget.setFixedWidth(230)
+        self.table_dock_widget.setFixedWidth(242)
         self.table_dock_widget.setTitleBarWidget(QWidget())
         self.table_dock_widget.setWidget(self.table)
 
@@ -69,7 +70,7 @@ class MyWindow(QMainWindow):
 
         self.information_area = self.scrollArea = QScrollArea()
         self.information_area.setWidgetResizable(True)
-        self.information_area.setGeometry(QRect(0, 0, 200, 200))
+        self.information_area.verticalScrollBar().rangeChanged.connect(self.set_to_max_value)
 
         self.information_label = QLabel('Cześć, jak masz na imię?')
         self.information_label.setAlignment(Qt.AlignBottom)
@@ -131,7 +132,7 @@ class MyWindow(QMainWindow):
         self.left_dock_widget = QDockWidget()
         self.left_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.left_dock_widget.setTitleBarWidget(QWidget())
-        self.left_dock_widget.setFixedWidth(218)
+        self.left_dock_widget.setFixedWidth(240)
         self.left_dock_widget.setWidget(self.left_widget)
 
         self.setCentralWidget(self.board)
@@ -159,8 +160,9 @@ class MyWindow(QMainWindow):
         current = self.information_label.text()
         new = current + '\n\n' + info
         self.information_label.setText(new)
-        self.information_label.update()
-        self.information_area.verticalScrollBar().setValue(10000000)
+
+    def set_to_max_value(self):
+        self.information_area.verticalScrollBar().setValue(self.information_area.verticalScrollBar().maximum())
 
     def exchange_letters_button_clicked(self):
         self.board.exchange_letters()
@@ -191,6 +193,14 @@ class MyWindow(QMainWindow):
         self.exchange_letters_button.setDisabled(True)
         self.table.init_rows()
         self.resign_button.setDisabled(True)
+
+    def resize_board(self):
+        self.board.resize()
+
+    def resizeEvent(self, event):
+        if self.board:
+            self.board.resize()
+        QMainWindow.resizeEvent(self, event)
 
 
 if __name__ == '__main__':

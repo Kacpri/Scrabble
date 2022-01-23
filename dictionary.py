@@ -93,10 +93,10 @@ def is_in_group(word):
     return word.lower() in group
 
 
-def possible_words_with_blank(word, find_letters=False):
+def possible_words_with_blank(word: str, find_letters: bool = False) -> list:
     word = word.lower()
     if BLANK not in word:
-        return word
+        return [word]
     words = []
     for letter in Sack.values_without_blank():
         letter = letter.lower()
@@ -108,7 +108,7 @@ def possible_words_with_blank(word, find_letters=False):
     return words
 
 
-def possible_letters(pattern):
+def possible_letters(pattern: str) -> list:
     return possible_words_with_blank(pattern, True)
 
 

@@ -1,6 +1,7 @@
 from board_utils import *
 from dictionary import *
 from sack import *
+from constants import BLANK
 
 
 class Word:
@@ -127,7 +128,7 @@ class Word:
         return self.points * self.multiplier + self.bonus
 
     def possible_letters_on_the_beginning(self, length=1):
-        return possible_words_with_blank(length * '_' + self.word, True)
+        return possible_words_with_blank(length * BLANK + self.word, True)
 
     def possible_letters_on_the_end(self, length=1):
-        return possible_words_with_blank(self.word + length * '_', True)
+        return possible_words_with_blank(self.word + length * BLANK, True)

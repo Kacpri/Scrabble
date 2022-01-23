@@ -3,6 +3,8 @@ from tile import *
 from sack import *
 from ai import *
 from direction import Direction
+from colors import *
+from constants import DEFAULT_WIDTH, DEFAULT_HEIGHT, MINIMAL_WIDTH, MINIMAL_HEIGHT
 import random
 
 
@@ -11,21 +13,26 @@ class Board(QGraphicsView):
                  end_turn_button, exchange_button, sack_counter):
         QGraphicsView.__init__(self)
 
+        self.scale = 1
+
         self.ROWS = 15
         self.COLUMNS = 15
 
-        self.squares = {}
+        self.board_squares = {}
+        self.other_squares = {}
         self.bonus_fields = []
         self._double_word_bonuses = []
         self._triple_word_bonuses = []
         self._double_letter_bonuses = []
         self._triple_letter_bonuses = []
+        self.labels = {}
 
         self.create_bonus_fields()
         self.scene = QGraphicsScene()
         self.build_board_scene()
         self.scene.setSceneRect(-SQUARE_SIZE / 2, -SQUARE_SIZE / 2, SQUARE_SIZE * 16, SQUARE_SIZE * 19)
-        self.setMinimumSize(int(self.scene.width()) + SQUARE_SIZE, int(self.scene.height()) + SQUARE_SIZE)
+        self.scene.setBackgroundBrush(QBrush(SEA_GREEN))
+        self.setMinimumSize(MINIMAL_WIDTH, MINIMAL_HEIGHT)
         self.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         self.setScene(self.scene)
@@ -40,7 +47,7 @@ class Board(QGraphicsView):
 
         # parameters visible for AI
         # tiles represent all tiles on board
-        self.tiles = None
+        self.tiles = {}
         # sack represents sack
         self.sack = None
         self.sack_counter = sack_counter
@@ -48,15 +55,38 @@ class Board(QGraphicsView):
         # score represents total score of both players
         self.score = score
         # latest tiles represent tiles added in last turn
-        self.latest_tiles = None
-        self.tiles_in_rack = None
-        self.tiles_to_exchange = None
+        self.latest_tiles = {}
+        self.tiles_in_rack = {}
+        self.tiles_to_exchange = {}
         self._total_points = None
         self._points = None
         self._words = None
         self._is_connected = False
         self.ai = None
         self.ai_thread = None
+
+    def resize(self):
+        if self.height() / self.width() < DEFAULT_HEIGHT / DEFAULT_WIDTH:
+            scale = round(self.height() / DEFAULT_HEIGHT, 1)
+        else:
+            scale = round(self.width() / DEFAULT_WIDTH, 1)
+
+        if abs(scale - self.scale) < 0.0001:
+            return
+        self.scale = scale
+
+        self.scene.setSceneRect(-SQUARE_SIZE / 2, -SQUARE_SIZE / 2, SQUARE_SIZE * 16 * self.scale,
+                                SQUARE_SIZE * 19 * self.scale)
+        for tile in self.tiles.values():
+            tile.resize(self.scale)
+        for square in self.board_squares.values():
+            square.setScale(self.scale)
+        for square in self.other_squares.values():
+            square.setScale(self.scale)
+        for x, y in self.labels:
+            label = self.labels.get((x, y))
+            label.setScale(self.scale)
+            label.setPos(x * self.scale, y * self.scale)
 
     def prepare_game(self):
         self.sack = Sack(self.sack_counter)
@@ -95,7 +125,7 @@ class Board(QGraphicsView):
 
                 coords = Coords(column, RACK_ROW)
                 points = Sack.get_value(letter)
-                tile = Tile(letter, points, coords, self.on_tile_move)
+                tile = Tile(letter, points, coords, self.scale, self.on_tile_move)
                 self.scene.addItem(tile)
                 self.tiles_in_rack[coords] = tile
                 self.tiles[coords] = tile
@@ -151,7 +181,7 @@ class Board(QGraphicsView):
 
         if word:
             for letter, points, coords in word.added_letters:
-                tile = Tile(letter, points, coords)
+                tile = Tile(letter, points, coords, self.scale)
                 tile.place()
                 self.tiles[coords] = tile
                 self.scene.addItem(tile)
@@ -199,7 +229,7 @@ class Board(QGraphicsView):
 
         if self.tiles.get(first_tile_coords.on_right()) or self.tiles.get(
                 first_tile_coords.on_left()) or self.tiles.get(first_tile_coords.above()) or self.tiles.get(
-            first_tile_coords.below()):
+                first_tile_coords.below()):
             self._is_connected = True
 
         direct_coords, opposite_coords = direction.get_functions()
@@ -416,13 +446,13 @@ class Board(QGraphicsView):
         self.build_labels()
 
     def build_squares(self):
-        brush = QBrush(Qt.white)
-        pen = QPen(Qt.black, 1, Qt.SolidLine)
+        brush = QBrush(LIGHT_SEA_GREEN)
+        pen = QPen(SEA_GREEN, 1, Qt.SolidLine)
 
         for row in range(self.ROWS):
             for column in range(self.COLUMNS):
                 square = self.add_square(row, column, pen, brush)
-                self.squares[Coords(row, column)] = square
+                self.board_squares[Coords(row, column)] = square
 
     def build_bonus_fields(self):
         for bonus_field in self.bonus_fields:
@@ -431,7 +461,7 @@ class Board(QGraphicsView):
             bonus_fields = []
 
             for position in bonus_field["Positions"]:
-                square = self.squares[position]
+                square = self.board_squares[position]
                 square.setZValue(2)
                 bonus_fields.append(square)
                 x, y = position.get()
@@ -439,29 +469,42 @@ class Board(QGraphicsView):
                 font = field_name.font()
                 font.setPointSize(10)
                 fm = QFontMetrics(font)
+                field_name.setZValue(2.1)
                 field_name.setFont(font)
-                field_name.setX(x * SQUARE_SIZE + (SQUARE_SIZE - fm.width(bonus_field["Name"])) / 2)
-                field_name.setY(y * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2)
+                x = x * SQUARE_SIZE + (SQUARE_SIZE - fm.width(bonus_field["Name"])) / 2
+                y = y * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2
+                field_name.setPos(x, y)
+                field_name.setBrush(bonus_field["Label brush"])
 
+                self.labels[(x, y)] = field_name
                 self.scene.addItem(field_name)
 
             paint_graphic_items(bonus_fields, pen, brush)
 
     def build_rack(self):
-        brush = QBrush(Qt.white)
-        pen = QPen(Qt.black, 1, Qt.SolidLine)
+        brush = QBrush(LIGHT_BROWN)
+        pen = QPen(BROWN, 1, Qt.SolidLine)
         for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND + 1):
-            self.add_square(RACK_ROW, column, pen, brush)
+            square = self.add_square(RACK_ROW, column, pen, brush)
+            self.other_squares[Coords(column, RACK_ROW)] = square
 
     def build_exchange_zone(self):
-        brush = QBrush(Qt.white)
-        pen = QPen(Qt.black, 1, Qt.SolidLine)
+        brush = QBrush(LIGHT_BROWN)
+        pen = QPen(BROWN, 1, Qt.SolidLine)
         for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND + 1):
-            self.add_square(EXCHANGE_ROW, column, pen, brush)
+            square = self.add_square(EXCHANGE_ROW, column, pen, brush)
+            self.other_squares[Coords(column, EXCHANGE_ROW)] = square
 
-        position = QPointF(34, 690)
-        label = QGraphicsSimpleTextItem('Litery do wymiany →')
-        label.setPos(position)
+        text = 'Litery do wymiany →     '
+        font = QFont('Verdana', 10)
+        fm = QFontMetrics(font)
+        x = SQUARE_SIZE * LEFT_RACK_BOUND - fm.width(text)
+        y = SQUARE_SIZE * EXCHANGE_ROW + (SQUARE_SIZE - fm.height()) / 2
+        label = QGraphicsSimpleTextItem(text)
+        label.setPos(x, y)
+        label.setFont(font)
+        label.setBrush(QBrush(WHITE))
+        self.labels[(x, y)] = label
         self.scene.addItem(label)
 
     def add_square(self, row, column, pen, brush):
@@ -478,19 +521,26 @@ class Board(QGraphicsView):
         return self.scene.addRect(rectangle, pen, brush)
 
     def build_labels(self):
-        fm = QFontMetrics(QGraphicsSimpleTextItem().font())
+        font = QFont('Verdana', 10)
+        fm = QFontMetrics(font)
         for count in range(LAST_ROW + 1):
             number = str(count + 1)
             number_label = QGraphicsSimpleTextItem(number)
-            number_position = QPointF(-fm.width(number) - 2 * MARGIN,
-                                      count * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2)
-            number_label.setPos(number_position)
+            x = -fm.width(number) - SQUARE_SIZE / 8
+            y = count * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2
+            number_label.setPos(x, y)
+            number_label.setFont(font)
+            number_label.setBrush(QBrush(WHITE))
+            self.labels[(x, y)] = number_label
 
             letter = chr(count + ord('A'))
             letter_label = QGraphicsSimpleTextItem(letter)
-            letter_position = QPointF(count * SQUARE_SIZE + (SQUARE_SIZE - fm.width(letter)) / 2,
-                                      -fm.height() - MARGIN)
-            letter_label.setPos(letter_position)
+            x = count * SQUARE_SIZE + (SQUARE_SIZE - fm.width(letter)) / 2
+            y = -fm.height() - SQUARE_SIZE / 8
+            letter_label.setPos(x, y)
+            letter_label.setFont(font)
+            letter_label.setBrush(QBrush(WHITE))
+            self.labels[(x, y)] = letter_label
 
             self.scene.addItem(number_label)
             self.scene.addItem(letter_label)
@@ -499,8 +549,9 @@ class Board(QGraphicsView):
 
         triple_word_bonuses = {
             "Name": "3S",
-            "Pen": QPen(Qt.darkRed, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(255, 0, 0, 160)),
+            "Pen": QPen(DARK_RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(RED),
+            "Label brush": QBrush(DARK_RED),
             "Positions": triple_word_bonus_coords
         }
         self._triple_word_bonuses = triple_word_bonus_coords
@@ -508,8 +559,9 @@ class Board(QGraphicsView):
 
         double_word_bonuses = {
             "Name": "2S",
-            "Pen": QPen(Qt.red, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(255, 0, 0, 100)),
+            "Pen": QPen(RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(PINK),
+            "Label brush": QBrush(RED),
             "Positions": double_word_bonus_coords
         }
         self._double_word_bonuses = double_word_bonus_coords
@@ -517,8 +569,9 @@ class Board(QGraphicsView):
 
         triple_letter_bonuses = {
             "Name": "3L",
-            "Pen": QPen(Qt.darkBlue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(0, 0, 255, 160)),
+            "Pen": QPen(NAVY_BLUE, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(BLUE),
+            "Label brush": QBrush(NAVY_BLUE),
             "Positions": triple_letter_bonus_coords
         }
         self._triple_letter_bonuses = triple_letter_bonus_coords
@@ -526,8 +579,9 @@ class Board(QGraphicsView):
 
         double_letter_bonuses = {
             "Name": "2L",
-            "Pen": QPen(Qt.blue, 2, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
-            "Brush": QBrush(QColor(0, 0, 255, 100)),
+            "Pen": QPen(BLUE, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Brush": QBrush(LIGHT_BLUE),
+            "Label brush": QBrush(BLUE),
             "Positions": double_letter_bonus_coords
         }
         self._double_letter_bonuses = double_letter_bonus_coords
