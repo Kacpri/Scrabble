@@ -16,8 +16,33 @@ def wait_for_processes(processes):
 
 
 class AI(QThread):
-    @classmethod
-    def evaluate_word(cls, word):
+    @staticmethod
+    def distance_to_bonus(tile_coords, direction, tiles):
+        tiles_to = tiles_behind = distance = 0
+        bonus = 0
+
+        coords = tile_coords.on_direction(direction)
+
+        while coords.is_valid():
+            if tiles.get(coords):
+                tiles_to += 1
+            if coords in double_word_bonus_coords:
+                bonus = 2
+                break
+            elif coords in triple_word_bonus_coords:
+                bonus = 3
+                break
+            coords.go(direction)
+        else:
+            return
+        distance = tile_coords.distance_to(coords)
+
+
+
+        return type
+
+    @staticmethod
+    def evaluate_word(word, tiles):
         # How many points is the word worth
         total_points = word.sum_up()
         # How many points are letters the word worth
@@ -40,16 +65,18 @@ class AI(QThread):
             else:
                 direction = Direction.RIGHT
 
-    @classmethod
-    def add_word(cls, words_dict, word):
+        distance = AI.distance_to_bonus(coords, direction, tiles)
+
+    @staticmethod
+    def add_word(words_dict, word):
         if word.is_in_dictionary():
             points = word.sum_up()
             if not words_dict.get(points):
                 words_dict[points] = []
             words_dict.get(points).append(word)
 
-    @classmethod
-    def check_neighbourhood(cls, tiles_list, coords, words, direction):
+    @staticmethod
+    def check_neighbourhood(tiles_list, coords, words, direction):
         while True:
             coords = direction(coords)
             neighbourhood = tiles_list.get(coords)
@@ -62,7 +89,7 @@ class AI(QThread):
     @classmethod
     def find_new_word_with_direction(cls, tiles_on_board, rack, direction, neighbourhoods_to_check, neighbours, words):
         words_by_points = {}
-        direct_coords, opposite_coords = direction.get_functions()
+        direct_coords, opposite_coords = Coords.get_functions(direction)
         for current in neighbourhoods_to_check:
             offset, max_opposite_length = neighbourhoods_to_check.get(current)
             all_words = [[] for _ in range(9)]
@@ -121,11 +148,14 @@ class AI(QThread):
                 if count > 5:
                     break
 
-    def __init__(self, tiles, sack):
+    def __init__(self, tiles_from_player, sack):
         super().__init__()
-        self.tiles = tiles
+        self.tiles_from_player = tiles_from_player
         self.sack = sack
-
+        self.remaining_letters = ['A'] * 9 + ['I'] * 8 + ['E'] * 7 + ['O'] * 6 + ['N', 'Z'] * 5 + \
+                                 ['R', 'S', 'W', 'Y'] * 4 + ['C', 'D', 'K', 'L', 'M', 'P', 'T'] * 3 + \
+                                 ['B', 'D', 'H', 'J', 'Ł', 'U', BLANK] * 2 +\
+                                 ['Ą', 'Ę', 'Ć', 'F', 'Ń', 'Ó', 'Ś', 'Ź', 'Ż']
         self.tiles_on_board = {}
         self.new_tiles = None
 
@@ -152,12 +182,13 @@ class AI(QThread):
 
         self.is_turn = False
 
-    def find_new_tiles(self):
+    def add_new_tiles(self):
         self.new_tiles = []
-        for tile_coords in self.tiles:
-            if tile_coords.is_on_board() and tile_coords not in self.tiles_on_board:
-                self.new_tiles.append(tile_coords)
-                self.tiles_on_board[tile_coords] = self.tiles.get(tile_coords).get_letter_and_points()
+        for tile_coords in self.tiles_from_player:
+            self.new_tiles.append(tile_coords)
+            letter, points = self.tiles_from_player.get(tile_coords).get_letter_and_points()
+            self.tiles_on_board[tile_coords] = (letter, points)
+            self.remaining_letters.remove(letter if points else BLANK)
 
     def remove_neighbourhood_to_check(self, neighbour, direction):
         if self.neighbourhoods_to_check[direction].get(neighbour):
@@ -178,7 +209,7 @@ class AI(QThread):
         return sequence, neighbour_coords, points
 
     def find_closest_neighbourhood(self, tile_coords, direction):
-        direct_coords, _ = direction.get_functions()
+        direct_coords, _ = Coords.get_functions(direction)
         neighbour = direct_coords(tile_coords)
         while self.tiles_on_board.get(neighbour):
             neighbour = direct_coords(neighbour)
@@ -188,7 +219,7 @@ class AI(QThread):
         return None
 
     def find_neighbours(self, tile_coords, direction, neighbours):
-        direct_coords, opposite_coords = direction.get_functions()
+        direct_coords, opposite_coords = Coords.get_functions(direction)
 
         start = ""
         middle, middle_points = self.tiles_on_board.get(tile_coords)
@@ -271,7 +302,7 @@ class AI(QThread):
         last_tile = self.new_tiles[-1]
 
         direction = Direction.UP if Coords.is_same_column(first_tile, last_tile) else Direction.LEFT
-        direct_coords, opposite_coords = direction.get_functions()
+        direct_coords, opposite_coords = Coords.get_functions(direction)
 
         while self.tiles_on_board.get(direct_coords(first_tile)):
             first_tile = direct_coords(first_tile)
@@ -316,6 +347,7 @@ class AI(QThread):
             self.rack.remove(letter if points else BLANK)
             self.tiles_on_board[coords] = (letter, points)
             self.new_tiles.append(coords)
+            self.remaining_letters.remove(letter if points else BLANK)
 
     # I start no_turn after my move when player is thinking
     def no_turn(self):
@@ -335,7 +367,7 @@ class AI(QThread):
         while not self.is_turn:
             sleep(0.1)
 
-        self.find_new_tiles()
+        self.add_new_tiles()
 
         self.remove_latest_from_neighbourhoods()
 

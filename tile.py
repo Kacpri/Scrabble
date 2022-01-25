@@ -42,7 +42,7 @@ class Tile(QGraphicsRectItem):
         self.letter_item.setFont(self.font)
         self.letter_item.setBrush(QBrush(SEA_GREEN))
 
-        self.setPos(coords.x() * SQUARE_SIZE * scale, coords.y() * SQUARE_SIZE * scale)
+        self.setPos(coords.x * SQUARE_SIZE * scale, coords.y * SQUARE_SIZE * scale)
         self.coords = None
         self.update_coords()
 
@@ -68,7 +68,7 @@ class Tile(QGraphicsRectItem):
     def resize(self, scale):
         self.scale = scale
         self.setScale(scale)
-        self.setPos(self.coords.x() * SQUARE_SIZE * scale, self.coords.y() * SQUARE_SIZE * scale)
+        self.setPos(self.coords.x * SQUARE_SIZE * scale, self.coords.y * SQUARE_SIZE * scale)
         self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
     def change_blank(self, new_letter):
@@ -101,7 +101,7 @@ class Tile(QGraphicsRectItem):
 
         self.update_coords()
 
-        if current_position.x() is not self.x() or current_position.y() is not self.y():
+        if current_position.x is not self.x() or current_position.y is not self.y():
             self.on_position_change(self)
 
         self.setZValue(3)
