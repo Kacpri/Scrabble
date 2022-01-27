@@ -155,6 +155,7 @@ class MyWindow(QMainWindow):
         self.table.set_headers()
         self.add_info(f'Cześć {self.player_name}!')
         self.text_field.returnPressed.disconnect(self.confirmed)
+        self.text_field.returnPressed.connect(self.board.blank_entered)
 
     def add_info(self, info):
         current = self.information_label.text()
@@ -184,7 +185,7 @@ class MyWindow(QMainWindow):
         self.table.set_headers()
 
     def resign_button_clicked(self):
-        self.board.reset()
+        self.board.reset_game()
         self.setCentralWidget(self.board)
         self.ai_clock.set_time(15)
         self.player_clock.set_time(15)
@@ -206,6 +207,5 @@ if __name__ == '__main__':
     app.setApplicationName('Scrabble')
 
     main = MyWindow()
-    main.show()
-
+    main.showMaximized()
     sys.exit(app.exec_())

@@ -253,10 +253,10 @@ class AI(QThread):
         neighbours[previous_neighbour_coords] = (possible_letters(pre_pattern), start_points + middle_points)
         neighbours[next_neighbour_coords] = (possible_letters(post_pattern), middle_points + end_points)
 
-    def update_vertical_neighbours(self, tile_coords):
+    def update_horizontal_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, Direction.LEFT, self.neighbours[Direction.DOWN])
 
-    def update_horizontal_neighbours(self, tile_coords):
+    def update_vertical_neighbours(self, tile_coords):
         self.find_neighbours(tile_coords, Direction.UP, self.neighbours[Direction.RIGHT])
 
     def update_neighbours(self):
@@ -271,13 +271,13 @@ class AI(QThread):
 
             if not first_tile_coords:
                 first_tile_coords = tile_coords
-                self.update_vertical_neighbours(tile_coords)
                 self.update_horizontal_neighbours(tile_coords)
+                self.update_vertical_neighbours(tile_coords)
             else:
                 if first_tile_coords.is_same_column(tile_coords):
-                    self.update_vertical_neighbours(tile_coords)
-                else:
                     self.update_horizontal_neighbours(tile_coords)
+                else:
+                    self.update_vertical_neighbours(tile_coords)
 
     def add_neighbourhood(self, neighbourhood, direction, offset=0, max_opposite_length=3):
         self.neighbourhoods_to_check[direction][neighbourhood] = (offset, max_opposite_length)

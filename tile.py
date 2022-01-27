@@ -93,7 +93,7 @@ class Tile(QGraphicsRectItem):
         return self.letter, self.points
 
     def mousePressEvent(self, event):
-        self.setZValue(4)
+        self.setZValue(10)
         self.old_position = self.pos()
         self.old_coords = self.coords
         QGraphicsRectItem.mousePressEvent(self, event)
