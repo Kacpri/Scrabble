@@ -61,7 +61,7 @@ class MyWindow(QMainWindow):
         self.sack_label = QLabel('Litery w worku:')
         self.sack_counter = QLabel('100')
         self.sack_counter.setFont(self.font)
-
+        self.font.setBold(True)
         self.sack_widget = QWidget()
         self.sack_layout = QHBoxLayout()
         self.sack_layout.addWidget(self.sack_label, alignment=Qt.AlignLeft)
@@ -184,22 +184,20 @@ class MyWindow(QMainWindow):
         self.table.set_headers()
 
     def resign_button_clicked(self):
-        self.board.resign()
+        self.board.reset()
         self.setCentralWidget(self.board)
         self.ai_clock.set_time(15)
         self.player_clock.set_time(15)
         self.start_button.setDisabled(False)
         self.end_turn_button.setDisabled(True)
         self.exchange_letters_button.setDisabled(True)
+        self.board.score.clear()
         self.table.init_rows()
         self.resign_button.setDisabled(True)
 
-    def resize_board(self):
-        self.board.resize()
-
     def resizeEvent(self, event):
         if self.board:
-            self.board.resize()
+            self.board.auto_resize()
         QMainWindow.resizeEvent(self, event)
 
 

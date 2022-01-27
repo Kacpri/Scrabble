@@ -4,7 +4,7 @@ from sack import *
 from ai import *
 from direction import Direction
 from colors import *
-from constants import DEFAULT_WIDTH, DEFAULT_HEIGHT, MINIMAL_WIDTH, MINIMAL_HEIGHT
+from constants import DEFAULT_WIDTH, DEFAULT_HEIGHT, MINIMAL_WIDTH, MINIMAL_HEIGHT, MAX_RACK_SIZE
 import random
 
 
@@ -42,6 +42,8 @@ class Board(QGraphicsView):
         self.confirm_button = confirm_button
         self.text_field = text_field
 
+        self.is_game_started = False
+
         # parameters visible for AI
         self.tiles_for_ai = {}
         # sack represents sack
@@ -53,6 +55,7 @@ class Board(QGraphicsView):
         # tiles represent all tiles on board
         self._tiles = {}
         # latest tiles represent tiles added in last turn
+        self.new_tiles = []
         self._latest_tiles = {}
         self._tiles_in_rack = {}
         self._tiles_to_exchange = {}
@@ -63,7 +66,7 @@ class Board(QGraphicsView):
         self.ai = None
         self.ai_thread = None
 
-    def resize(self):
+    def auto_resize(self):
         if self.height() / self.width() < DEFAULT_HEIGHT / DEFAULT_WIDTH:
             scale = round(self.height() / DEFAULT_HEIGHT, 1)
         else:
@@ -87,6 +90,7 @@ class Board(QGraphicsView):
             label.setPos(x * self.scale, y * self.scale)
 
     def prepare_game(self):
+        self.is_game_started = False
         self.sack = Sack(self.sack_counter)
         self.tiles_for_ai = {}
         self._tiles = {}
@@ -100,27 +104,64 @@ class Board(QGraphicsView):
         self._is_connected = False
 
     def start_game(self):
+        if self.is_game_started:
+            self.reset()
         self.prepare_game()
-        self.ai.is_turns = bool(random.getrandbits(1))
+        self.is_game_started = True
+        self.ai.is_turn = bool(random.getrandbits(1))
         self.add_letters_to_rack()
         self.ai.finished.connect(self.end_of_ai_turn)
         self.ai.start()
         if self.ai.is_turn:
             self.add_info('Przeciwnik myśli')
-
         else:
+            self.add_info('Twój ruch')
             self.player_clock.start()
         return self.ai.is_turn
 
+    def player_ends(self):
+        self.player_clock.stop()
+        points = 0
+        for letter in self.ai.rack:
+            points += Sack.get_value(letter)
+
+        self.add_info(f'Komputerowi pozostały płytki warte {points} punktów')
+        self.score.add_points('AI', -points)
+        self.score.add_points('Gracz', points)
+        self.end_game()
+
+    def ai_ends(self):
+        points = 0
+        for tile in self._tiles_in_rack.values():
+            points += tile.points
+        for tile in self._tiles_to_exchange.values():
+            points += tile.points
+
+        self.add_info(f'Zostały ci płytki warte {points} punktów')
+        self.score.add_points('Gracz', -points)
+        self.score.add_points('AI', points)
+        self.end_game()
+
+    def end_game(self):
+        player_score = self.score.get_score('Gracz')
+        ai_score = self.score.get_score('AI')
+        if player_score > ai_score:
+            self.add_info('Gratulacje! Udało Ci się pokonać algorytm!')
+        elif player_score < ai_score:
+            self.add_info('Tym razem się nie udało. Próbuj dalej :)')
+        else:
+            self.add_info('Dobry remis nie jest zły ;)')
+
     def add_letters_to_rack(self, letters=None):
         if not letters:
-            letters = self.sack.draw(7 - len(self._tiles_in_rack) - len(self._tiles_to_exchange))
-        index = 0
-        for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND):
+            letters = self.sack.draw(MAX_RACK_SIZE - len(self._tiles_in_rack) - len(self._tiles_to_exchange))
+
+        for column in range(LEFT_RACK_BOUND, RIGHT_RACK_BOUND + 1):
+            if not letters:
+                return
             coords = Coords(column, RACK_ROW)
-            if not self._tiles.get(coords) and len(self._tiles_in_rack) + len(self._tiles_to_exchange) < 7:
-                letter = letters[index]
-                index += 1
+            if not self._tiles.get(coords) and len(self._tiles_in_rack) + len(self._tiles_to_exchange) < MAX_RACK_SIZE:
+                letter = letters.pop()
 
                 coords = Coords(column, RACK_ROW)
                 points = Sack.get_value(letter)
@@ -166,7 +207,7 @@ class Board(QGraphicsView):
 
         self.start_of_ai_turn()
 
-    def resign(self):
+    def reset(self):
         for tile in self._tiles.values():
             self.scene.removeItem(tile)
 
@@ -193,10 +234,10 @@ class Board(QGraphicsView):
         if word:
             for letter, points, coords in word.added_letters:
                 tile = Tile(letter, points, coords, self.scale)
-                tile.place()
+                tile.place(True)
                 self._tiles[coords] = tile
                 self.scene.addItem(tile)
-                tile.update()
+                self.new_tiles.append(tile)
 
             self.add_info(f'Komputer ułożył słowo "{word.lower()}" i uzyskał {word.sum_up()} punktów')
             self.score.add_points('AI', word.sum_up())
@@ -204,6 +245,10 @@ class Board(QGraphicsView):
         else:
             self.add_info(f'Komputer wymienił litery')
             self.score.add_points('AI', 0)
+
+        if not self.ai.rack:
+            self.ai_ends()
+            return
 
         self.player_clock.start()
 
@@ -321,13 +366,20 @@ class Board(QGraphicsView):
                 if blank_tiles:
                     for blank in blank_tiles:
                         blank.change_back()
-                    self.end_turn()
+                    self.text_field.setDisabled(True)
+                    self.text_field.clear()
+                    self.set_prompt('')
+                    self.confirm_button.setDisabled(True)
                 return
 
-        for tile_coords in self._latest_tiles.values():
-            tile_coords.place()
+        for tile in self._latest_tiles.values():
+            tile.place()
 
-        if len(self._latest_tiles) == 7:
+        for tile in self.new_tiles:
+            tile.remove_highlight()
+        self.new_tiles.clear()
+
+        if len(self._latest_tiles) == MAX_RACK_SIZE:
             self._points += 50
 
         score_information = 'Ułożyłeś '
@@ -339,8 +391,12 @@ class Board(QGraphicsView):
         self.score.add_points('Gracz', self._points)
         self.add_letters_to_rack()
 
-        self.start_of_ai_turn()
 
+        if not self._tiles_in_rack and not self._tiles_to_exchange and not self.sack.how_many_remain():
+            self.player_ends()
+            return
+
+        self.start_of_ai_turn()
         self._latest_tiles.clear()
 
     def add_word_and_points(self, coords, direction):

@@ -4,7 +4,7 @@ from time import sleep
 
 from board_utils import *
 from dictionary import possible_letters
-from constants import BLANK
+from constants import BLANK, MAX_RACK_SIZE
 from direction import Direction
 from word import Word
 
@@ -35,29 +35,33 @@ class AI(QThread):
             coords.go(direction)
         else:
             return
+        bonus_coords = coords.copy()
+
         distance = tile_coords.distance_to(coords)
-
-
 
         return type
 
     @staticmethod
-    def evaluate_word(word, tiles):
+    def evaluate_word(word, tiles, sack):
         # How many points is the word worth
         total_points = word.sum_up()
         # How many points are letters the word worth
         points_for_letters = 0
         # How many blanks does the word contain
-        blanks = 0
+        blanks_in_word = 0
         # What is the direction of the word
         direction = None
 
+        blanks_remaining = sack.count(BLANK)
+
+        possible_prefix = word.possible_prefix()
         first_coords = None
 
+        word.sort()
         for letter, points, coords in word.added_letters:
             points_for_letters += points
             if points == 0:
-                blanks += 1
+                blanks_in_word += 1
             if not first_coords:
                 first_coords = coords
             elif first_coords.is_same_column(coords):
@@ -96,7 +100,7 @@ class AI(QThread):
             first_word = Word(rack, neighbours)
             first_neighbour_coords = cls.check_neighbourhood(tiles_on_board, current, [first_word], opposite_coords)
             all_words[0] = [first_word]
-            for direct_level in range(1, len(rack)):
+            for direct_level in range(1, len(rack) + 1):
                 all_words[direct_level] = []
                 for word in all_words[direct_level - 1]:
                     all_words[direct_level].extend(word.generate_children(current))
@@ -398,14 +402,18 @@ class AI(QThread):
 
         self.choose_word()
 
-        self.finished.emit()
-
-        self.is_turn = False
         if not self.word:
             # exchange letters here or wait
             return
+
         self.place_word()
-        self.rack.extend(self.sack.draw(7 - len(self.rack)))
+
+        self.is_turn = False
+        self.finished.emit()
+
+        new_letters = self.sack.draw(MAX_RACK_SIZE - len(self.rack))
+        if new_letters:
+            self.rack.extend(new_letters)
 
         # I forget every word I found
         self.words_by_points.clear()

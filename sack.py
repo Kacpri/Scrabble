@@ -1,5 +1,5 @@
 from random import sample, choice
-from constants import BLANK
+from constants import BLANK, MAX_RACK_SIZE
 
 
 class Sack:
@@ -22,7 +22,7 @@ class Sack:
 
         self.label = label
 
-    def draw(self, quantity=7):
+    def draw(self, quantity=MAX_RACK_SIZE):
         if not self._letters:
             return None
         elif len(self._letters) < quantity:

@@ -1,6 +1,6 @@
-from itertools import permutations
+# from itertools import permutations
 from sack import Sack
-from constants import BLANK
+from constants import BLANK, MAX_WORD_LENGTH
 import os
 
 filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
@@ -8,9 +8,10 @@ directory = "text_files/"
 
 
 def prepare_data(text):
-    words = [set() for _ in range(16)]
+    words = [set() for _ in range(MAX_WORD_LENGTH + 1)]
     for word in text.split('\n'):
         words[len(word)].add(word)
+
     return words
 
 
@@ -43,11 +44,11 @@ def find_groups(length):
 
 
 def load_groups(size):
-    groups = []
     content = words_reader(directory + filenames[size - 4])
     if content:
+        groups = set()
         for group in content.split('\n'):
-            groups.append(group)
+            groups.add(group)
     else:
         groups = find_groups(size)
         words_writer(directory + filenames[size - 4], groups)
@@ -93,45 +94,56 @@ def is_in_group(word):
     return word.lower() in group
 
 
-def possible_words_with_blank(word: str, find_letters: bool = False) -> list:
-    word = word.lower()
-    if BLANK not in word:
-        return [word]
+def possible_words_with_blank(pattern):
+    pattern = pattern.lower()
+    if BLANK not in pattern:
+        return [pattern]
     words = []
     for letter in Sack.values_without_blank():
         letter = letter.lower()
-        new_word = word.replace(BLANK, letter, 1)
+        new_word = pattern.replace(BLANK, letter, 1)
         if BLANK in new_word:
             words.extend(possible_words_with_blank(new_word))
-        elif new_word in dictionary[len(word)]:
-            words.append(letter if find_letters else new_word)
+        elif new_word in dictionary[len(pattern)]:
+            words.append(new_word)
     return words
 
 
-def possible_letters(pattern: str) -> list:
-    return possible_words_with_blank(pattern, True)
+def possible_letters(pattern):
+    pattern = pattern.lower()
+    if BLANK not in pattern:
+        return [pattern]
 
+    words = possible_words_with_blank(pattern)
 
-def find_words(rack):
-    words = [set() for _ in range(len(rack) + 1)]
-    for length in range(2, len(rack) + 1):
-        for permutation in permutations(rack, length):
-            word = ''.join(permutation).lower()
-            if is_word_in_dictionary(word):
-                words[length].add(word)
+    stem = pattern.replace(BLANK, '')
+    letters = []
+    for word in words:
+        letters.append(word.replace(stem, ''))
 
+    return letters
 
-def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length_right):
-    words = [set() for _ in range(len(rack) + len(on_board) + 1)]
-
-    for length in range(1, len(rack) + 1):
-        for permutation in permutations(rack, length):
-            permutation = ''.join(permutation)
-            for length_left in range(max_length_left + 1):
-                length_right = length - length_left
-                if length_right > max_length_right:
-                    continue
-                word = permutation[:length_left] + on_board + permutation[length_left:]
-                word = word.lower()
-                if is_word_in_dictionary(word):
-                    words[length + len(on_board)].add(word)
+#
+# def find_words(rack):
+#     words = [set() for _ in range(len(rack) + 1)]
+#     for length in range(2, len(rack) + 1):
+#         for permutation in permutations(rack, length):
+#             word = ''.join(permutation).lower()
+#             if is_word_in_dictionary(word):
+#                 words[length].add(word)
+#
+#
+# def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length_right):
+#     words = [set() for _ in range(len(rack) + len(on_board) + 1)]
+#
+#     for length in range(1, len(rack) + 1):
+#         for permutation in permutations(rack, length):
+#             permutation = ''.join(permutation)
+#             for length_left in range(max_length_left + 1):
+#                 length_right = length - length_left
+#                 if length_right > max_length_right:
+#                     continue
+#                 word = permutation[:length_left] + on_board + permutation[length_left:]
+#                 word = word.lower()
+#                 if is_word_in_dictionary(word):
+#                     words[length + len(on_board)].add(word)

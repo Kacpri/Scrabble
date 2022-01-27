@@ -11,41 +11,61 @@ class Word:
         if not added_letters:
             added_letters = []
 
-        self.word = word
-        self.points = points
-        self.multiplier = multiplier
-        self.bonus = bonus
-        self.positions = positions
-        self.added_letters = added_letters
-        self.rack = rack[:]
-        self.neighbours = neighbours
-        self.is_valid = True
+        self._word = word
+        self._points = points
+        self._multiplier = multiplier
+        self._bonus = bonus
+        self._positions = positions
+        self._added_letters = added_letters
+        self._rack = rack[:]
+        self._neighbours = neighbours
+        self._is_valid = True
+
+    @property
+    def word(self):
+        return self._word
+
+    @property
+    def added_letters(self):
+        return self._added_letters
+
+    @property
+    def positions(self):
+        return self._positions
+
+    @property
+    def is_valid(self):
+        return self._is_valid
 
     def __str__(self):
-        return self.word
+        return self._word
 
     def check_beginning(self):
-        length = len(self.word)
+        length = len(self._word)
         if length < 4:
             return
         if length > 7:
             length = 7
-        self.is_valid = is_in_group(self.word[:length])
+        self._is_valid = is_in_group(self._word[:length])
 
     def check_end(self):
-        length = len(self.word)
+        length = len(self._word)
         if length < 4:
             return
         if length > 7:
             length = 7
-        self.is_valid = is_in_group(self.word[-length:])
+        self._is_valid = is_in_group(self._word[-length:])
 
     def is_in_dictionary(self):
-        return is_word_in_dictionary(self.word)
+        return is_word_in_dictionary(self._word)
+
+    def sort(self):
+        self._added_letters.sort(key=lambda tup: tup[1])
 
     def create_child(self):
-        return Word(self.rack, self.neighbours, self.word, self.points, self.multiplier, self.bonus, self.positions[:],
-                    self.added_letters[:])
+        return Word(self._rack, self._neighbours, self._word, self._points, self._multiplier, self._bonus,
+                    self._positions[:],
+                    self._added_letters[:])
 
     def generate_child(self, letter, position, extra_points, is_blank=False):
         child = self.create_child()
@@ -56,8 +76,8 @@ class Word:
 
     def generate_children(self, position):
         children = []
-        neighbours = self.neighbours.get(position)
-        for letter in set(self.rack):
+        neighbours = self._neighbours.get(position)
+        for letter in set(self._rack):
             extra_points = 0
             if neighbours:
                 if letter.lower() not in neighbours[0]:
@@ -75,17 +95,17 @@ class Word:
         return children
 
     def add_letter(self, letter, position, extra_points, is_from_rack, is_blank=False):
-        if not self.word:
-            self.word = letter
-            self.positions.append(position)
+        if not self._word:
+            self._word = letter
+            self._positions.append(position)
         else:
-            self.positions.append(position)
-            self.positions.sort()
-            index = self.positions.index(position)
-            self.word = self.word[:index] + letter + self.word[index:]
+            self._positions.append(position)
+            self._positions.sort()
+            index = self._positions.index(position)
+            self._word = self._word[:index] + letter + self._word[index:]
             if index == 0:
                 self.check_beginning()
-            elif index == len(self.word) - 1:
+            elif index == len(self._word) - 1:
                 self.check_end()
 
         if not self.is_valid:
@@ -96,17 +116,17 @@ class Word:
             letter_points = 0
 
         if is_from_rack:
-            self.added_letters.append((letter, letter_points, position))
-            self.rack.remove(letter if letter_points else BLANK)
+            self._added_letters.append((letter, letter_points, position))
+            self._rack.remove(letter if letter_points else BLANK)
 
             if position in double_letter_bonus_coords:
                 letter_points *= 2
             elif position in triple_letter_bonus_coords:
                 letter_points *= 3
             elif position in double_word_bonus_coords:
-                self.multiplier *= 2
+                self._multiplier *= 2
             elif position in triple_word_bonus_coords:
-                self.multiplier *= 3
+                self._multiplier *= 3
 
         if extra_points:
             extra_points += letter_points
@@ -114,21 +134,21 @@ class Word:
                 extra_points *= 2
             elif position in triple_word_bonus_coords:
                 extra_points *= 3
-            self.bonus += extra_points
+            self._bonus += extra_points
 
-        self.points += letter_points
+        self._points += letter_points
 
-        if len(self.added_letters) == 7:
-            self.bonus += 50
+        if len(self._added_letters) == MAX_RACK_SIZE:
+            self._bonus += 50
 
     def lower(self):
-        return self.word.lower()
+        return self._word.lower()
 
     def sum_up(self):
-        return self.points * self.multiplier + self.bonus
+        return self._points * self._multiplier + self._bonus
 
-    def possible_letters_on_the_beginning(self, length=1):
-        return possible_words_with_blank(length * BLANK + self.word, True)
+    def possible_prefix(self, length=1):
+        return possible_letters(length * BLANK + self._word)
 
-    def possible_letters_on_the_end(self, length=1):
-        return possible_words_with_blank(self.word + length * BLANK, True)
+    def possible_suffix(self, length=1):
+        return possible_letters(self._word + length * BLANK)

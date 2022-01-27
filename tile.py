@@ -5,7 +5,7 @@ from PyQt5.QtCore import *
 from coords import Coords
 from dictionary import BLANK
 from constants import SQUARE_SIZE, MARGIN
-from colors import YELLOW, YELLOW2, SEA_GREEN
+from colors import YELLOW, YELLOW2, SEA_GREEN, LIGHT_SEA_GREEN
 
 
 class Tile(QGraphicsRectItem):
@@ -17,7 +17,6 @@ class Tile(QGraphicsRectItem):
         QGraphicsRectItem.__init__(self, MARGIN, MARGIN, SQUARE_SIZE - 2 * MARGIN, SQUARE_SIZE - 2 * MARGIN, parent)
         if on_position_change:
             self.on_position_change = on_position_change
-
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
         self.points = points
@@ -26,13 +25,16 @@ class Tile(QGraphicsRectItem):
         self.scale = scale
         self.setScale(scale)
         self.setZValue(3)
-        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
+        # self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
         self.setPen(QPen(YELLOW, 0))
         self.setBrush(QBrush(YELLOW))
 
         self.letter_item = QGraphicsSimpleTextItem(letter, self)
+
         self.font = QFont("Verdana", 20)
+        if not points:
+            self.font.setItalic(True)
         font_metrics = QFontMetrics(self.font)
         height = font_metrics.height()
         width = font_metrics.width(self.letter)
@@ -51,7 +53,7 @@ class Tile(QGraphicsRectItem):
 
         self.is_placed = False
 
-        if letter != BLANK:
+        if points:
             points = QGraphicsSimpleTextItem(str(self.points), self)
             font = QFont("Verdana", 10)
             font_metrics = QFontMetrics(font)
@@ -69,12 +71,19 @@ class Tile(QGraphicsRectItem):
         self.scale = scale
         self.setScale(scale)
         self.setPos(self.coords.x * SQUARE_SIZE * scale, self.coords.y * SQUARE_SIZE * scale)
-        self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
+        # self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
-    def change_blank(self, new_letter):
+    def change_to_blank(self, new_letter):
         if self.letter == BLANK:
             self.letter = new_letter.upper()
             self.letter_item.setText(new_letter)
+            self.font.setItalic(True)
+            font_metrics = QFontMetrics(self.font)
+            height = font_metrics.height()
+            width = font_metrics.width(self.letter)
+            self.letter_item.setFont(self.font)
+            self.letter_item.setX((SQUARE_SIZE - width) / 2 - MARGIN)
+            self.letter_item.setY((SQUARE_SIZE - height) / 2 - MARGIN)
 
     def change_back(self):
         self.letter = BLANK
@@ -89,9 +98,9 @@ class Tile(QGraphicsRectItem):
         self.old_coords = self.coords
         QGraphicsRectItem.mousePressEvent(self, event)
 
-    def mouseMoveEvent(self, event):
-        if self.move_restrict_rect.contains(event.scenePos()):
-            QGraphicsRectItem.mouseMoveEvent(self, event)
+    # def mouseMoveEvent(self, event):
+    #     if self.move_restrict_rect.contains(event.scenePos()):
+    #         QGraphicsRectItem.mouseMoveEvent(self, event)
 
     def mouseReleaseEvent(self, event):
         current_position = self.pos()
@@ -123,7 +132,12 @@ class Tile(QGraphicsRectItem):
     def swap_with_other(self, other):
         other.move(self.old_position)
 
-    def place(self):
+    def remove_highlight(self):
+        self.letter_item.setBrush(QBrush(SEA_GREEN))
+
+    def place(self, highlight=False):
+        if highlight:
+            self.letter_item.setBrush(QBrush(LIGHT_SEA_GREEN))
         self.setBrush(QBrush(YELLOW2))
         self.setPen(QPen(YELLOW2, 0))
         self.setFlag(QGraphicsItem.ItemIsMovable, False)
