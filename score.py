@@ -5,7 +5,7 @@ class Score:
         self._player_names = ['AI', 'Gracz']
         for player in self._player_names:
             self._players_score[player] = []
-        self._observers = []
+        self._observers = {}
 
     @property
     def player_names(self):
@@ -14,25 +14,22 @@ class Score:
     def get_score(self, player):
         return self._players_score[player][-1]
 
-    def set_player_names(self, players):
-        self._player_names = players
-
     def clear(self):
         for player in self._players_score:
             self._players_score[player].clear()
 
-    def add_points(self, player, points):
+    def add_points(self, player, message, points):
         player_score = self._players_score[player]
         current_score = player_score[-1] if player_score else 0
         new_score = current_score + points
         self._players_score[player].append(new_score)
         self._last_score = new_score
-        for callback in self._observers:
-            callback(self._last_score)
+        callback = self._observers.get(player)
+        callback(message, points, self._last_score)
 
     @property
     def last_score(self):
         return self._last_score
 
-    def bind_to(self, callback):
-        self._observers.append(callback)
+    def bind_to(self, callback, player):
+        self._observers[player] = callback

@@ -119,29 +119,31 @@ class Board(QGraphicsView):
         else:
             self.add_info('Zaczynasz')
             self.player_clock.start()
-        return self.ai.is_turn
 
     def player_ends(self):
         self.player_clock.stop()
         points = 0
+        letters = ' '
         for letter in self.ai.rack:
             points += Sack.get_value(letter)
+            letters += f'{letter}, '
 
-        self.add_info(f'Komputerowi pozostały płytki warte {points} punktów')
-        self.score.add_points('AI', -points)
-        self.score.add_points('Gracz', points)
+        self.score.add_points('AI', f'(Zostały {letters[:-2]})', -points)
+        self.score.add_points('Gracz', '', points)
         self.end_game()
 
     def ai_ends(self):
         points = 0
+        letters = ' '
         for tile in self._tiles_in_rack.values():
             points += tile.points
+            letters += f'{tile.letter}, '
         for tile in self._tiles_to_exchange.values():
             points += tile.points
+            letters += f'{tile.letter}, '
 
-        self.add_info(f'Zostały ci płytki warte {points} punktów')
-        self.score.add_points('Gracz', -points)
-        self.score.add_points('AI', points)
+        self.score.add_points('Gracz', f'(Zostały {letters[:-2]})', -points)
+        self.score.add_points('AI', '', points)
         self.end_game()
 
     def end_game(self):
@@ -197,7 +199,7 @@ class Board(QGraphicsView):
         self._latest_tiles.clear()
 
         new_letters = self.sack.exchange(letters_to_exchange)
-        self.score.add_points('Gracz', 0)
+        self.score.add_points('Gracz', '(wymiana liter)', 0)
 
         if not new_letters:
             self.add_info('Za mało płytek w worku')
@@ -242,12 +244,11 @@ class Board(QGraphicsView):
                 self.scene.addItem(tile)
                 self.new_tiles.append(tile)
 
-            self.add_info(f'Komputer ułożył słowo "{word.lower()}" i uzyskał {word.sum_up()} punktów')
-            self.score.add_points('AI', word.sum_up())
+            self.score.add_points('AI', word, word.sum_up())
 
         else:
             self.add_info(f'Komputer wymienił litery')
-            self.score.add_points('AI', 0)
+            self.score.add_points('AI', '(wymiana liter)', 0)
 
         if not self.ai.rack:
             self.ai_ends()
@@ -319,9 +320,8 @@ class Board(QGraphicsView):
         else:
             direction = Direction.RIGHT
 
-        if self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
-                first_tile_coords.on_left()) or self._tiles.get(first_tile_coords.above()) or self._tiles.get(
-            first_tile_coords.below()):
+        if len(sorted_latest_tiles) == 1 and (self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
+                first_tile_coords.on_left())):
             self._is_connected = True
 
         direct_coords, opposite_coords = Coords.get_functions(direction)
@@ -401,7 +401,7 @@ class Board(QGraphicsView):
         score_information += f' zdobyłeś {self._points} punktów'
         self.add_info(score_information)
 
-        self.score.add_points('Gracz', self._points)
+        self.score.add_points('Gracz', self._words, self._points)
         self.add_letters_to_rack()
 
         if not self._tiles_in_rack and not self._tiles_to_exchange and not self.sack.how_many_remain():

@@ -25,7 +25,6 @@ class Tile(QGraphicsRectItem):
         self.scale = scale
         self.setScale(scale)
         self.setZValue(3)
-        # self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
         self.setPen(QPen(YELLOW, 0))
         self.setBrush(QBrush(YELLOW))
@@ -71,7 +70,6 @@ class Tile(QGraphicsRectItem):
         self.scale = scale
         self.setScale(scale)
         self.setPos(self.coords.x * SQUARE_SIZE * scale, self.coords.y * SQUARE_SIZE * scale)
-        # self.move_restrict_rect = QRectF(0, 0, SQUARE_SIZE * 15 * scale, SQUARE_SIZE * 18 * scale)
 
     def change_to_blank(self, new_letter):
         if self.letter == BLANK:
