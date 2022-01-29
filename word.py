@@ -147,8 +147,8 @@ class Word:
     def sum_up(self):
         return self._points * self._multiplier + self._bonus
 
-    def possible_prefix(self, length=1):
-        return possible_letters(length * BLANK + self._word)
+    def possible_prefix(self):
+        return possible_letters(BLANK + self._word)
 
-    def possible_suffix(self, length=1):
-        return possible_letters(self._word + length * BLANK)
+    def possible_suffix(self):
+        return possible_letters(self._word + BLANK)

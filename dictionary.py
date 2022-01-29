@@ -116,34 +116,9 @@ def possible_letters(pattern):
 
     words = possible_words_with_blank(pattern)
 
-    stem = pattern.replace(BLANK, '')
+    index = pattern.find(BLANK)
     letters = []
     for word in words:
-        letters.append(word.replace(stem, ''))
+        letters.append(word[index])
 
     return letters
-
-#
-# def find_words(rack):
-#     words = [set() for _ in range(len(rack) + 1)]
-#     for length in range(2, len(rack) + 1):
-#         for permutation in permutations(rack, length):
-#             word = ''.join(permutation).lower()
-#             if is_word_in_dictionary(word):
-#                 words[length].add(word)
-#
-#
-# def find_words_with_letters_on_board(rack, on_board, max_length_left, max_length_right):
-#     words = [set() for _ in range(len(rack) + len(on_board) + 1)]
-#
-#     for length in range(1, len(rack) + 1):
-#         for permutation in permutations(rack, length):
-#             permutation = ''.join(permutation)
-#             for length_left in range(max_length_left + 1):
-#                 length_right = length - length_left
-#                 if length_right > max_length_right:
-#                     continue
-#                 word = permutation[:length_left] + on_board + permutation[length_left:]
-#                 word = word.lower()
-#                 if is_word_in_dictionary(word):
-#                     words[length + len(on_board)].add(word)
