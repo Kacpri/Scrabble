@@ -116,9 +116,10 @@ def possible_letters(pattern):
 
     words = possible_words_with_blank(pattern)
 
-    index = pattern.find(BLANK)
+    first = pattern.find(BLANK)
+    last = pattern.rfind(BLANK)
     letters = []
     for word in words:
-        letters.append(word[index])
+        letters.append(word[first:last + 1])
 
     return letters
