@@ -14,6 +14,8 @@ class Scrabble(QMainWindow):
         self.score = Score()
         self.player_name = 'Gracz'
 
+        self.buttons = []
+        self.button_size = 40
         self.font_size = 12
         self.timer_font_size = 15
 
@@ -59,7 +61,7 @@ class Scrabble(QMainWindow):
         self.sack_layout.addWidget(self.sack_counter, alignment=Qt.AlignRight)
         self.sack_widget.setLayout(self.sack_layout)
 
-        self.information_area = self.scrollArea = QScrollArea()
+        self.information_area = QScrollArea()
         self.information_area.setWidgetResizable(True)
         self.information_area.verticalScrollBar().rangeChanged.connect(self.set_to_max_value)
 
@@ -73,23 +75,26 @@ class Scrabble(QMainWindow):
         self.prompt_label = QLabel('Przedstaw się')
 
         self.text_field = QLineEdit()
-        self.confirm_button = QPushButton('Potwierdź')
 
-        self.text_field.returnPressed.connect(self.confirmed)
+        self.confirm_button = QPushButton('Potwierdź')
+        self.buttons.append(self.confirm_button)
         self.confirm_button.clicked.connect(self.text_field.returnPressed)
+        self.text_field.returnPressed.connect(self.confirmed)
 
         self.end_turn_button = QPushButton('Zakończ ruch')
-
+        self.buttons.append(self.end_turn_button)
         self.end_turn_button.setDisabled(True)
 
         self.exchange_letters_button = QPushButton('Wymień litery')
-
+        self.buttons.append(self.exchange_letters_button)
         self.exchange_letters_button.setDisabled(True)
 
-        self.start_button = QPushButton('Rozpocznij grę')
+        self.start_button = QPushButton('Rozpocznij grę', self)
+        self.buttons.append(self.start_button)
         self.start_button.setDisabled(True)
 
         self.resign_button = QPushButton('Poddaj się')
+        self.buttons.append(self.resign_button)
         self.resign_button.setDisabled(True)
 
         self.end_turn_button.clicked.connect(self.end_turn_button_clicked)
@@ -104,33 +109,33 @@ class Scrabble(QMainWindow):
                            self.text_field, self.prompt_label.setText, self.confirm_button, self.end_turn_button,
                            self.exchange_letters_button, self.sack_counter)
 
-        self.left_layout.addWidget(self.player_widget)
-        self.left_layout.addWidget(self.left_table)
         self.left_layout.addWidget(self.sack_widget)
         self.left_layout.addWidget(self.information_area)
+        self.left_layout.addWidget(self.prompt_label)
+        self.left_layout.addWidget(self.text_field)
+        self.left_layout.addWidget(self.confirm_button)
+        self.left_layout.addWidget(self.start_button)
+        self.left_layout.addWidget(self.end_turn_button)
+        self.left_layout.addWidget(self.exchange_letters_button)
+        self.left_layout.addWidget(self.resign_button)
 
+        self.right_layout.addWidget(self.player_widget)
+        self.right_layout.addWidget(self.left_table)
         self.right_layout.addWidget(self.ai_widget)
         self.right_layout.addWidget(self.right_table)
-        self.right_layout.addWidget(self.prompt_label)
-        self.right_layout.addWidget(self.text_field)
-        self.right_layout.addWidget(self.confirm_button)
-        self.right_layout.addWidget(self.start_button)
-        self.right_layout.addWidget(self.end_turn_button)
-        self.right_layout.addWidget(self.exchange_letters_button)
-        self.right_layout.addWidget(self.resign_button)
 
         self.left_widget.setLayout(self.left_layout)
         self.left_dock_widget = QDockWidget()
         self.left_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.left_dock_widget.setTitleBarWidget(QWidget())
-        # self.left_dock_widget.setFixedWidth(240)
+        self.left_dock_widget.setFixedWidth(300)
         self.left_dock_widget.setWidget(self.left_widget)
 
         self.right_widget.setLayout(self.right_layout)
         self.right_dock_widget = QDockWidget()
         self.right_dock_widget.setFeatures(QDockWidget.NoDockWidgetFeatures)
         self.right_dock_widget.setTitleBarWidget(QWidget())
-        # self.right_dock_widget.setFixedWidth(240)
+        self.right_dock_widget.setFixedWidth(300)
         self.right_dock_widget.setWidget(self.right_widget)
 
         self.setCentralWidget(self.board)
@@ -142,6 +147,7 @@ class Scrabble(QMainWindow):
         if not new_name:
             self.add_info('Musisz coś wpisać!')
             return
+        self.player_name = new_name
         self.player_label.setText(self.player_name)
         self.start_button.setDisabled(False)
         self.confirm_button.setDisabled(True)
@@ -201,4 +207,11 @@ class Scrabble(QMainWindow):
 
             self.right_table.resizeRowsToContents()
             self.left_table.resizeRowsToContents()
+
+        button_size = round(sqrt(self.height()))
+        if self.button_size != button_size:
+            self.button_size = button_size
+            for button in self.buttons:
+                button.setFixedHeight(self.button_size)
+
         QMainWindow.resizeEvent(self, event)
