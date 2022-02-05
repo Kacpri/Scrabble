@@ -1,10 +1,6 @@
-# from itertools import permutations
 from sack import Sack
 from constants import BLANK, MAX_WORD_LENGTH
 import os
-
-filenames = ["quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
-directory = "text_files/"
 
 
 def prepare_data(text):
@@ -28,98 +24,114 @@ def words_writer(file_name, words):
             file.write(f'{word}\n')
 
 
-data = words_reader('words.txt')
-dictionary = prepare_data(data)
+def static_init(cls):
+    if getattr(cls, "static_init", None):
+        cls.static_init()
+    return cls
 
 
-def find_groups(length):
-    groups = set()
-    for words_by_length in dictionary:
-        for word in words_by_length:
-            for i in range(len(word) + 1 - length):
-                group = word[i:i + length]
-                if not any(letter in group for letter in ['v', 'x', 'q']):
-                    groups.add(group)
-    return groups
+@static_init
+class Dictionary:
+    filenames = ["trios.txt", "quads.txt", "fives.txt", "sixes.txt", "sevens.txt"]
+    directory = "text_files/"
 
+    data = words_reader('words.txt')
+    dictionary = prepare_data(data)
 
-def load_groups(size):
-    content = words_reader(directory + filenames[size - 4])
-    if content:
+    @classmethod
+    def find_groups(cls, length):
         groups = set()
-        for group in content.split('\n'):
-            groups.add(group)
-    else:
-        groups = find_groups(size)
-        words_writer(directory + filenames[size - 4], groups)
-    return groups
+        for words_by_length in cls.dictionary:
+            for word in words_by_length:
+                for i in range(len(word) + 1 - length):
+                    group = word[i:i + length]
+                    if not any(letter in group for letter in ['v', 'x', 'q']):
+                        groups.add(group)
+        return groups
 
+    @classmethod
+    def load_groups(cls, size):
+        content = words_reader(cls.directory + cls.filenames[size - 3])
+        if content:
+            groups = set()
+            for group in content.split('\n'):
+                groups.add(group)
+        else:
+            groups = cls.find_groups(size)
+            words_writer(cls.directory + cls.filenames[size - 3], groups)
+        return groups
 
-if not os.path.isdir(directory):
-    os.mkdir(directory)
-quads = load_groups(4)
-fives = load_groups(5)
-sixes = load_groups(6)
-sevens = load_groups(7)
+    if not os.path.isdir(directory):
+        os.mkdir(directory)
 
+    @classmethod
+    def static_init(cls):
+        cls.trios = cls.load_groups(3)
+        cls.quads = cls.load_groups(4)
+        cls.fives = cls.load_groups(5)
+        cls.sixes = cls.load_groups(6)
+        cls.sevens = cls.load_groups(7)
 
-def is_word_in_dictionary(word):
-    word = word.lower()
-    if BLANK in word:
+    @classmethod
+    def is_word_in_dictionary(cls, word):
+        word = word.lower()
+        if BLANK in word:
+            for letter in Sack.values_without_blank():
+                letter = letter.lower()
+                new_word = word.replace(BLANK, letter, 1)
+                if BLANK in new_word:
+                    if cls.is_word_in_dictionary(new_word):
+                        return True
+                elif new_word in cls.dictionary[len(word)]:
+                    return True
+        if word in cls.dictionary[len(word)]:
+            return True
+        return False
+
+    @classmethod
+    def is_in_group(cls, word):
+        length = len(word)
+        if length == 3:
+            group = cls.trios
+        elif length == 4:
+            group = cls.quads
+        elif length == 5:
+            group = cls.fives
+        elif length == 6:
+            group = cls.sixes
+        elif length == 7:
+            group = cls.sevens
+        else:
+            return False
+        return word.lower() in group
+
+    @classmethod
+    def possible_words_with_blank(cls, pattern):
+        pattern = pattern.lower()
+        if BLANK not in pattern:
+            return [pattern]
+        words = []
         for letter in Sack.values_without_blank():
             letter = letter.lower()
-            new_word = word.replace(BLANK, letter, 1)
+            new_word = pattern.replace(BLANK, letter, 1)
             if BLANK in new_word:
-                if is_word_in_dictionary(new_word):
-                    return True
-            elif new_word in dictionary[len(word)]:
-                return True
-    if word in dictionary[len(word)]:
-        return True
-    return False
+                words.extend(cls.possible_words_with_blank(new_word))
+            elif new_word in cls.dictionary[len(pattern)]:
+                words.append(new_word)
+        return words
 
+    @classmethod
+    def possible_letters(cls, pattern):
+        pattern = pattern.lower()
+        if BLANK not in pattern:
+            return [pattern]
 
-def is_in_group(word):
-    length = len(word)
-    if length == 4:
-        group = quads
-    elif length == 5:
-        group = fives
-    elif length == 6:
-        group = sixes
-    elif length == 7:
-        group = sevens
-    else:
-        return False
-    return word.lower() in group
+        words = cls.possible_words_with_blank(pattern)
 
+        first = pattern.find(BLANK)
+        last = pattern.rfind(BLANK)
+        letters = []
+        for word in words:
+            letters.append(word[first:last + 1])
 
-def possible_words_with_blank(pattern):
-    pattern = pattern.lower()
-    if BLANK not in pattern:
-        return [pattern]
-    words = []
-    for letter in Sack.values_without_blank():
-        letter = letter.lower()
-        new_word = pattern.replace(BLANK, letter, 1)
-        if BLANK in new_word:
-            words.extend(possible_words_with_blank(new_word))
-        elif new_word in dictionary[len(pattern)]:
-            words.append(new_word)
-    return words
-
-
-def possible_letters(pattern):
-    pattern = pattern.lower()
-    if BLANK not in pattern:
-        return [pattern]
-
-    words = possible_words_with_blank(pattern)
-
-    first = pattern.find(BLANK)
-    last = pattern.rfind(BLANK)
-    letters = []
-    for word in words:
-        letters.append(word[first:last + 1])
-
-    return letters
+        return letters

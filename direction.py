@@ -12,3 +12,6 @@ class Direction(Enum):
 
     def perpendicular(self):
         return Direction(self.value % 2 + 1)
+
+    def bivalent(self):
+        return Direction(self.value % 2 - 2)

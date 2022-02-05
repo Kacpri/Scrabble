@@ -1,8 +1,10 @@
-from PyQt5.QtWidgets import *
 from PyQt5.QtGui import QFont
 from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QHBoxLayout, QScrollArea, QLineEdit, \
+    QPushButton, QDockWidget
+
 from board import Board
-from table_view import TableView
+from score_view import ScoreView
 from score import Score
 from clock import Clock
 from math import sqrt
@@ -13,14 +15,16 @@ class Scrabble(QMainWindow):
         super(Scrabble, self).__init__(parent)
         self.score = Score()
         self.player_name = 'Gracz'
+        self.is_game_started = False
 
-        self.buttons = []
+        self.turn_buttons = []
+        self.other_widgets = []
         self.button_size = 40
         self.font_size = 12
         self.timer_font_size = 15
 
-        self.right_table = TableView(self.score, 'AI', 0, 3)
-        self.left_table = TableView(self.score, 'Gracz', 0, 3)
+        self.right_table = ScoreView(self.score, 'AI', 0, 3)
+        self.left_table = ScoreView(self.score, 'Gracz', 0, 3)
 
         self.left_widget = QWidget()
         self.left_layout = QVBoxLayout()
@@ -73,51 +77,58 @@ class Scrabble(QMainWindow):
         self.information_area.setWidget(self.information_label)
 
         self.prompt_label = QLabel('Przedstaw się')
+        self.other_widgets.append(self.prompt_label)
 
         self.text_field = QLineEdit()
+        self.other_widgets.append(self.text_field)
 
         self.confirm_button = QPushButton('Potwierdź')
-        self.buttons.append(self.confirm_button)
+        self.other_widgets.append(self.confirm_button)
         self.confirm_button.clicked.connect(self.text_field.returnPressed)
         self.text_field.returnPressed.connect(self.confirmed)
 
         self.end_turn_button = QPushButton('Zakończ ruch')
-        self.buttons.append(self.end_turn_button)
-        self.end_turn_button.setDisabled(True)
+        self.turn_buttons.append(self.end_turn_button)
 
-        self.exchange_letters_button = QPushButton('Wymień litery')
-        self.buttons.append(self.exchange_letters_button)
-        self.exchange_letters_button.setDisabled(True)
+        self.skip_button = QPushButton('Pomiń ruch')
+        self.turn_buttons.append(self.skip_button)
 
-        self.start_button = QPushButton('Rozpocznij grę', self)
-        self.buttons.append(self.start_button)
-        self.start_button.setDisabled(True)
+        self.exchange_button = QPushButton('Wymień litery')
+        self.turn_buttons.append(self.exchange_button)
 
-        self.resign_button = QPushButton('Poddaj się')
-        self.buttons.append(self.resign_button)
-        self.resign_button.setDisabled(True)
+        self.collect_button = QPushButton('Zbierz litery')
+        self.turn_buttons.append(self.collect_button)
+
+        self.start_resign_button = QPushButton('Rozpocznij grę', self)
+        self.other_widgets.append(self.start_resign_button)
+        self.start_resign_button.setDisabled(True)
+
+        for button in self.turn_buttons:
+            button.setDisabled(True)
 
         self.end_turn_button.clicked.connect(self.end_turn_button_clicked)
 
-        self.exchange_letters_button.clicked.connect(self.exchange_letters_button_clicked)
+        self.skip_button.clicked.connect(self.skip_button_clicked)
 
-        self.start_button.clicked.connect(self.start_button_clicked)
+        self.exchange_button.clicked.connect(self.exchange_button_clicked)
 
-        self.resign_button.clicked.connect(self.resign_button_clicked)
+        self.collect_button.clicked.connect(self.collect_button_clicked)
 
-        self.board = Board(self.score, self.player_clock, self.ai_clock, self.add_info,
-                           self.text_field, self.prompt_label.setText, self.confirm_button, self.end_turn_button,
-                           self.exchange_letters_button, self.sack_counter)
+        self.start_resign_button.clicked.connect(self.start_resign_button_clicked)
+
+        self.board = Board(self.score, self.player_clock, self.ai_clock, self.add_info, self.text_field,
+                           self.prompt_label.setText, self.confirm_button, self.disable_buttons, self.sack_counter)
 
         self.left_layout.addWidget(self.sack_widget)
         self.left_layout.addWidget(self.information_area)
         self.left_layout.addWidget(self.prompt_label)
         self.left_layout.addWidget(self.text_field)
         self.left_layout.addWidget(self.confirm_button)
-        self.left_layout.addWidget(self.start_button)
+        self.left_layout.addWidget(self.start_resign_button)
+        self.left_layout.addWidget(self.collect_button)
         self.left_layout.addWidget(self.end_turn_button)
-        self.left_layout.addWidget(self.exchange_letters_button)
-        self.left_layout.addWidget(self.resign_button)
+        self.left_layout.addWidget(self.exchange_button)
+        self.left_layout.addWidget(self.skip_button)
 
         self.right_layout.addWidget(self.player_widget)
         self.right_layout.addWidget(self.left_table)
@@ -149,7 +160,7 @@ class Scrabble(QMainWindow):
             return
         self.player_name = new_name
         self.player_label.setText(self.player_name)
-        self.start_button.setDisabled(False)
+        self.start_resign_button.setDisabled(False)
         self.confirm_button.setDisabled(True)
         self.text_field.setDisabled(True)
         self.text_field.clear()
@@ -166,31 +177,39 @@ class Scrabble(QMainWindow):
     def set_to_max_value(self):
         self.information_area.verticalScrollBar().setValue(self.information_area.verticalScrollBar().maximum())
 
-    def exchange_letters_button_clicked(self):
+    def exchange_button_clicked(self):
         self.board.exchange_letters()
 
     def end_turn_button_clicked(self):
         self.board.end_turn()
 
-    def start_button_clicked(self):
-        self.start_button.setDisabled(True)
-        self.end_turn_button.setDisabled(False)
-        self.exchange_letters_button.setDisabled(False)
-        self.resign_button.setDisabled(False)
-        self.board.start_game()
+    def skip_button_clicked(self):
+        self.board.skip_turn()
 
-    def resign_button_clicked(self):
-        self.board.reset_game()
-        self.setCentralWidget(self.board)
-        self.ai_clock.set_time(15)
-        self.player_clock.set_time(15)
-        self.start_button.setDisabled(False)
-        self.end_turn_button.setDisabled(True)
-        self.exchange_letters_button.setDisabled(True)
-        self.board.score.clear()
-        self.right_table.clear_rows()
-        self.left_table.clear_rows()
-        self.resign_button.setDisabled(True)
+    def collect_button_clicked(self):
+        self.board.collect_tiles()
+
+    def disable_buttons(self, value):
+        for button in self.turn_buttons:
+            button.setDisabled(value)
+
+    def start_resign_button_clicked(self):
+        if self.is_game_started:
+            self.setCentralWidget(self.board)
+            self.ai_clock.set_time(15)
+            self.player_clock.set_time(15)
+            self.disable_buttons(True)
+            self.right_table.clear_rows()
+            self.left_table.clear_rows()
+            self.is_game_started = False
+            self.start_resign_button.setText('Rozpocznij grę')
+            self.board.score.clear()
+            self.board.reset_game()
+        else:
+            self.disable_buttons(False)
+            self.is_game_started = True
+            self.start_resign_button.setText('Poddaj się')
+            self.board.start_game()
 
     def resizeEvent(self, event):
         if self.board:
@@ -211,7 +230,7 @@ class Scrabble(QMainWindow):
         button_size = round(sqrt(self.height()))
         if self.button_size != button_size:
             self.button_size = button_size
-            for button in self.buttons:
+            for button in self.turn_buttons + self.other_widgets:
                 button.setFixedHeight(self.button_size)
 
         QMainWindow.resizeEvent(self, event)

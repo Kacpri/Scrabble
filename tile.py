@@ -1,32 +1,31 @@
-from PyQt5.QtWidgets import *
-from PyQt5.QtGui import *
-from PyQt5.QtCore import *
+from PyQt5.QtCore import QPoint, Qt
+from PyQt5.QtGui import QPen, QBrush, QFont, QFontMetrics
+from PyQt5.QtWidgets import QGraphicsRectItem, QGraphicsItem, QGraphicsSimpleTextItem
 
 from coords import Coords
 from dictionary import BLANK
 from constants import SQUARE_SIZE, MARGIN
-from colors import YELLOW, YELLOW2, SEA_GREEN, LIGHT_SEA_GREEN
+from colors import *
 
 
 class Tile(QGraphicsRectItem):
-    DARK_BROWN = QColor(165, 131, 85, 255)
-    BROWN = QColor(193, 157, 109, 255)
-    LIGHT_BROWN = QColor(222, 184, 135, 255)
-
-    def __init__(self, letter, points, coords, scale, on_position_change=None, parent=None):
+    def __init__(self, letter, points, coords, scale, on_position_change=None, move_to_rack=None, parent=None):
         QGraphicsRectItem.__init__(self, MARGIN, MARGIN, SQUARE_SIZE - 2 * MARGIN, SQUARE_SIZE - 2 * MARGIN, parent)
         if on_position_change:
             self.on_position_change = on_position_change
+        if move_to_rack:
+            self.move_to_rack = move_to_rack
+
         self.setFlag(QGraphicsItem.ItemIsMovable, True)
         self.setFlag(QGraphicsItem.ItemSendsGeometryChanges, True)
         self.points = points
         self.letter = letter
 
         self.scale = scale
-        self.setScale(scale)
+        self.setScale(self.scale)
         self.setZValue(3)
 
-        self.setPen(QPen(YELLOW, 0))
+        self.setPen(QPen(YELLOW2, 0))
         self.setBrush(QBrush(YELLOW))
 
         self.letter_item = QGraphicsSimpleTextItem(letter, self)
@@ -42,6 +41,12 @@ class Tile(QGraphicsRectItem):
         self.letter_item.setY((SQUARE_SIZE - height) / 2 - MARGIN)
         self.letter_item.setFont(self.font)
         self.letter_item.setBrush(QBrush(SEA_GREEN))
+
+        self.shadow = QGraphicsRectItem(MARGIN * 2, MARGIN * 2, SQUARE_SIZE, SQUARE_SIZE, self)
+        self.shadow.setFlag(QGraphicsItem.ItemStacksBehindParent)
+        self.shadow.setBrush(QBrush(TRANSPARENT_BLACK))
+        self.shadow.setPen(QPen(TRANSPARENT, 0))
+        self.shadow.hide()
 
         self.setPos(coords.x * SQUARE_SIZE * scale, coords.y * SQUARE_SIZE * scale)
         self.coords = None
@@ -91,27 +96,38 @@ class Tile(QGraphicsRectItem):
         return self.letter, self.points
 
     def mousePressEvent(self, event):
+        if self.is_placed:
+            return
+        if event.button() == Qt.RightButton:
+            return
+        self.setScale(self.scale * 1.1)
+
         self.setZValue(10)
         self.old_position = self.pos()
         self.old_coords = self.coords
+
+        self.setPos(self.x() - 2 * MARGIN, self.y() - 2 * MARGIN)
+        self.shadow.show()
         QGraphicsRectItem.mousePressEvent(self, event)
 
-    # def mouseMoveEvent(self, event):
-    #     if self.move_restrict_rect.contains(event.scenePos()):
-    #         QGraphicsRectItem.mouseMoveEvent(self, event)
-
     def mouseReleaseEvent(self, event):
+        if self.is_placed:
+            return
+        if event.button() == Qt.RightButton:
+            self.move_to_rack(self)
+            return
+        self.setScale(self.scale)
+
         current_position = self.pos()
+        self.setX(round((self.x() + MARGIN * 2) / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
+        self.setY(round((self.y() + MARGIN * 2) / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
 
-        self.setX(round(self.x() / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
-        self.setY(round(self.y() / (SQUARE_SIZE * self.scale)) * SQUARE_SIZE * self.scale)
-
-        self.update_coords()
-
-        if current_position.x is not self.x() or current_position.y is not self.y():
+        if current_position != self.pos():
+            self.update_coords()
             self.on_position_change(self)
 
         self.setZValue(3)
+        self.shadow.hide()
         QGraphicsRectItem.mouseReleaseEvent(self, event)
 
     def update_coords(self):
@@ -122,6 +138,10 @@ class Tile(QGraphicsRectItem):
     def move(self, position):
         self.setPos(position)
         self.update_coords()
+
+    def move_to_coords(self, coords):
+        position = QPoint(coords.x * SQUARE_SIZE * self.scale, coords.y * SQUARE_SIZE * self.scale)
+        self.move(position)
 
     def undo_move(self):
         self.setPos(self.old_position)

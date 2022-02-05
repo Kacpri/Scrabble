@@ -1,16 +1,21 @@
-from dictionary import is_word_in_dictionary
-from tile import *
-from sack import *
-from ai import *
+from PyQt5.QtCore import Qt, QRectF
+from PyQt5.QtGui import QBrush, QFontMetrics, QPen, QFont
+from PyQt5.QtWidgets import QGraphicsView, QGraphicsScene, QGraphicsSimpleTextItem
+
+from tile import Tile
+from sack import Sack
+from ai import AI
+from dictionary import Dictionary
 from direction import Direction
 from colors import *
-from constants import DEFAULT_WIDTH, DEFAULT_HEIGHT, MINIMAL_WIDTH, MINIMAL_HEIGHT, MAX_RACK_SIZE
+from constants import *
+from board_utils import *
 import random
 
 
 class Board(QGraphicsView):
     def __init__(self, score, player_clock, ai_clock, add_comment, text_field, set_prompt, confirm_button,
-                 end_turn_button, exchange_button, sack_counter):
+                 disable_buttons, sack_counter):
         QGraphicsView.__init__(self)
 
         self.scale = 1
@@ -37,8 +42,7 @@ class Board(QGraphicsView):
         self.ai_clock = ai_clock
         self.add_info = add_comment
         self.set_prompt = set_prompt
-        self.exchange_button = exchange_button
-        self.end_turn_button = end_turn_button
+        self.disable_buttons = disable_buttons
         self.confirm_button = confirm_button
         self.text_field = text_field
 
@@ -56,13 +60,12 @@ class Board(QGraphicsView):
         self._tiles = {}
         # latest tiles represent tiles added in last turn
         self.new_tiles = []
-        self._latest_tiles = {}
-        self._tiles_in_rack = {}
-        self._tiles_to_exchange = {}
+        self._latest_tiles = set()
+        self._tiles_in_rack = set()
+        self._tiles_to_exchange = set()
         self._blanks = []
-        self._total_points = None
-        self._points = None
-        self._words = None
+        self._points = 0
+        self._words = []
         self._is_connected = False
         self.ai = None
 
@@ -92,17 +95,22 @@ class Board(QGraphicsView):
     def prepare_game(self):
         self.is_game_started = False
         self.sack = Sack(self.sack_counter)
-        self.tiles_for_ai = {}
-        self._tiles = {}
-        self._latest_tiles = {}
-        self._tiles_in_rack = {}
-        self._tiles_to_exchange = {}
-        self._blanks = []
         self.ai = AI(self.tiles_for_ai, self.sack)
-        self._total_points = 0
+
+    def reset_game(self):
+        for tile in self._tiles.values():
+            self.scene.removeItem(tile)
+
+        self.tiles_for_ai.clear()
+        self._tiles.clear()
+        self._latest_tiles.clear()
+        self._tiles_in_rack.clear()
+        self._tiles_to_exchange.clear()
+        self._blanks.clear()
+        self._words.clear()
         self._points = 0
-        self._words = []
         self._is_connected = False
+        self.prepare_game()
 
     def start_game(self):
         if self.is_game_started:
@@ -111,14 +119,43 @@ class Board(QGraphicsView):
         self.is_game_started = True
         self.ai.is_turn = bool(random.getrandbits(1))
         self.add_letters_to_rack()
-        self.ai.finished.connect(self.end_of_ai_turn)
+        self.ai.finished.connect(self.end_ai_turn)
         self.ai.start()
         if self.ai.is_turn:
             self.add_info('Przeciwnik zaczyna')
-            self.start_of_ai_turn()
+            self.start_ai_turn()
         else:
             self.add_info('Zaczynasz')
             self.player_clock.start()
+
+    def move_to_rack(self, tile):
+        old_coords = tile.coords
+        if old_coords in self._tiles_in_rack:
+            return
+
+        coords = Coords(LEFT_RACK_BOUND, RACK_ROW)
+        while coords in self._tiles_in_rack:
+            coords.go_right()
+
+        if old_coords in self._tiles_to_exchange:
+            self._tiles_to_exchange.remove(old_coords)
+        else:
+            self._latest_tiles.remove(old_coords)
+
+        del self._tiles[old_coords]
+        self._tiles[coords] = tile
+        self._tiles_in_rack.add(coords)
+        tile.move_to_coords(coords)
+
+    def collect_tiles(self):
+        for coords in set.union(self._latest_tiles, self._tiles_to_exchange):
+            tile = self.get_tile(coords)
+            self.move_to_rack(tile)
+
+    def skip_turn(self):
+        self.collect_tiles()
+        self.score.add_points('Gracz', '(Pominięcie ruchu)', 0)
+        self.start_ai_turn()
 
     def player_ends(self):
         self.player_clock.stop()
@@ -135,10 +172,12 @@ class Board(QGraphicsView):
     def ai_ends(self):
         points = 0
         letters = ' '
-        for tile in self._tiles_in_rack.values():
+        for coords in self._tiles_in_rack:
+            tile = self._tiles.get(coords)
             points += tile.points
             letters += f'{tile.letter}, '
-        for tile in self._tiles_to_exchange.values():
+        for coords in self._tiles_to_exchange:
+            tile = self._tiles.get(coords)
             points += tile.points
             letters += f'{tile.letter}, '
 
@@ -169,9 +208,9 @@ class Board(QGraphicsView):
 
                 coords = Coords(column, RACK_ROW)
                 points = Sack.get_value(letter)
-                tile = Tile(letter, points, coords, self.scale, self.on_tile_move)
+                tile = Tile(letter, points, coords, self.scale, self.on_tile_move, self.move_to_rack)
                 self.scene.addItem(tile)
-                self._tiles_in_rack[coords] = tile
+                self._tiles_in_rack.add(coords)
                 self._tiles[coords] = tile
 
     def exchange_letters(self):
@@ -184,13 +223,15 @@ class Board(QGraphicsView):
             return
 
         letters_to_exchange = []
-        for tile in self._tiles_to_exchange.values():
+        for coords in self._tiles_to_exchange:
+            tile = self._tiles.get(coords)
             letters_to_exchange.append(tile.letter)
             del self._tiles[tile.coords]
             self.scene.removeItem(tile)
 
         letters_on_board = []
-        for tile in self._latest_tiles.values():
+        for coords in self._latest_tiles:
+            tile = self._tiles.get(coords)
             letters_on_board.append(tile.letter)
             del self._tiles[tile.coords]
             self.scene.removeItem(tile)
@@ -209,42 +250,39 @@ class Board(QGraphicsView):
         self.add_info('Wymieniłeś/aś litery')
         self.add_letters_to_rack(new_letters + letters_on_board)
 
-        self.start_of_ai_turn()
+        self.start_ai_turn()
 
-    def reset_game(self):
-        for tile in self._tiles.values():
-            self.scene.removeItem(tile)
-
-        self.prepare_game()
-
-    def start_of_ai_turn(self):
+    def start_ai_turn(self):
         self.player_clock.stop()
         self.tiles_for_ai.clear()
         for coords in self._latest_tiles:
-            self.tiles_for_ai[coords] = self._latest_tiles.get(coords)
+            self.tiles_for_ai[coords] = self._tiles.get(coords)
         self._latest_tiles.clear()
 
         self.ai.is_turn = True
         self.ai_clock.start()
-        self.exchange_button.setDisabled(True)
-        self.end_turn_button.setDisabled(True)
+        self.disable_buttons(True)
 
-    def end_of_ai_turn(self):
+    def end_ai_turn(self):
         self.ai_clock.stop()
-        self.end_turn_button.setDisabled(False)
-        self.exchange_button.setDisabled(False)
+        self.disable_buttons(False)
 
         word = self.ai.word
+        words = [word]
 
         if word:
-            for letter, points, coords in word.added_letters:
+            for coords in word.added_letters:
+                letter, points = word.added_letters.get(coords)
                 tile = Tile(letter, points, coords, self.scale)
                 tile.place(True)
                 self._tiles[coords] = tile
                 self.scene.addItem(tile)
                 self.new_tiles.append(tile)
+                perpendicular_word = self.find_word(coords, word.direction.perpendicular().opposite(), False)
+                if perpendicular_word:
+                    words.append(perpendicular_word)
 
-            self.score.add_points('AI', word, word.sum_up())
+            self.score.add_points('AI', words, word.sum_up())
 
         else:
             self.add_info(f'Komputer wymienił litery')
@@ -261,16 +299,14 @@ class Board(QGraphicsView):
         self.set_prompt("Jaką literą ma być blank?")
         self.text_field.setDisabled(False)
         self.confirm_button.setDisabled(False)
-        self.end_turn_button.setDisabled(True)
-        self.exchange_button.setDisabled(True)
+        self.disable_buttons(True)
 
     def stop_waiting_for_blank(self):
         self.set_prompt('')
         self.text_field.setDisabled(True)
         self.text_field.clear()
         self.confirm_button.setDisabled(True)
-        self.end_turn_button.setDisabled(False)
-        self.exchange_button.setDisabled(False)
+        self.disable_buttons(False)
 
     def revert_blanks(self):
         for blank in self._blanks:
@@ -305,22 +341,21 @@ class Board(QGraphicsView):
             self.add_info('Pierwszy wyraz musi przechodzić przez środek')
             return
 
-        if self._latest_tiles.get(Coords.central()):
+        if Coords.central() in self._latest_tiles:
             self._is_connected = True
             if len(self._latest_tiles) == 1:
                 self.add_info('Wyraz musi zawierać przynajmniej dwie litery')
                 return
 
-        sorted_latest_tiles = sorted(self._latest_tiles)
-        first_tile_coords = sorted_latest_tiles[0]
-        last_tile_coords = sorted_latest_tiles[-1]
+        first_tile_coords = min(self._latest_tiles)
+        last_tile_coords = max(self._latest_tiles)
 
         if first_tile_coords.is_same_column(last_tile_coords):
             direction = Direction.DOWN
         else:
             direction = Direction.RIGHT
 
-        if len(sorted_latest_tiles) == 1 and (self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
+        if len(self._latest_tiles) == 1 and (self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
                 first_tile_coords.on_left())):
             self._is_connected = True
 
@@ -329,7 +364,7 @@ class Board(QGraphicsView):
 
         columns = set()
         rows = set()
-        for tile in sorted_latest_tiles:
+        for tile in self._latest_tiles:
             columns.add(tile.x)
             rows.add(tile.y)
 
@@ -365,27 +400,28 @@ class Board(QGraphicsView):
             self.add_info('Wyraz musi się stykać z występującymi już na planszy')
             return
 
-        self._words = []
+        self._words.clear()
         self._points = 0
 
-        self.add_word_and_points(first_tile_coords, direction)
+        self.find_word(first_tile_coords, direction)
 
         if len(columns) > 1:
             for column in columns:
-                self.add_word_and_points(Coords(column, first_tile_coords.y), direction.perpendicular().opposite())
+                self.find_word(Coords(column, first_tile_coords.y), direction.perpendicular().opposite())
 
         else:
             for row in rows:
-                self.add_word_and_points(Coords(first_tile_coords.x, row), direction.perpendicular().opposite())
+                self.find_word(Coords(first_tile_coords.x, row), direction.perpendicular().opposite())
 
         for word in self._words:
-            if not is_word_in_dictionary(word):
+            if not Dictionary.is_word_in_dictionary(word):
                 self.add_info(f'słowo "{word.lower()}" nie występuje w słowniku')
                 if self._blanks:
                     self.revert_blanks()
                 return
 
-        for tile in self._latest_tiles.values():
+        for coords in self._latest_tiles:
+            tile = self._tiles.get(coords)
             tile.place()
 
         for tile in self.new_tiles:
@@ -395,12 +431,6 @@ class Board(QGraphicsView):
         if len(self._latest_tiles) == MAX_RACK_SIZE:
             self._points += 50
 
-        score_information = 'Ułożyłeś '
-        for word in self._words:
-            score_information += f'"{word.lower()}", '
-        score_information += f' zdobyłeś {self._points} punktów'
-        self.add_info(score_information)
-
         self.score.add_points('Gracz', self._words, self._points)
         self.add_letters_to_rack()
 
@@ -408,9 +438,9 @@ class Board(QGraphicsView):
             self.player_ends()
             return
 
-        self.start_of_ai_turn()
+        self.start_ai_turn()
 
-    def add_word_and_points(self, coords, direction):
+    def find_word(self, coords, direction, is_players_turn=True):
         word = ''
         word_points = 0
         word_multiplier = 1
@@ -450,31 +480,16 @@ class Board(QGraphicsView):
 
             current_tile = direct_coords(current_tile)
 
-        self._words.append(word)
-        self._points += word_points * word_multiplier
+        if is_players_turn:
+            self._words.append(word)
+            self._points += word_points * word_multiplier
+        else:
+            return word
 
     def swap_tiles(self, tile, other_tile):
         tile.swap_with_other(other_tile)
         self._tiles[tile.coords] = tile
         self._tiles[other_tile.coords] = other_tile
-
-        if tile.coords.is_in_rack():
-            self._tiles_in_rack[tile.coords] = tile
-
-        elif tile.coords.is_in_exchange_zone():
-            self._tiles_to_exchange[tile.coords] = tile
-
-        else:
-            self._latest_tiles[tile.coords] = tile
-
-        if other_tile.coords.is_in_rack():
-            self._tiles_in_rack[other_tile.coords] = other_tile
-
-        elif other_tile.coords.is_in_exchange_zone():
-            self._tiles_in_rack[other_tile.coords] = other_tile
-
-        else:
-            self._latest_tiles[other_tile.coords] = other_tile
 
     def on_tile_move(self, tile):
         if not tile.coords.is_valid():
@@ -486,11 +501,8 @@ class Board(QGraphicsView):
             return
 
         other_tile = None
-        dicts_to_check = [self._latest_tiles, self._tiles_in_rack, self._tiles_to_exchange]
-        for dict_to_check in dicts_to_check:
-            if tile.coords in dict_to_check:
-                other_tile = dict_to_check.get(tile.coords)
-                break
+        if tile.coords in set.union(self._latest_tiles, self._tiles_in_rack, self._tiles_to_exchange):
+            other_tile = self._tiles.get(tile.coords)
 
         if other_tile:
             self.swap_tiles(tile, other_tile)
@@ -502,21 +514,23 @@ class Board(QGraphicsView):
         else:
             del self._tiles[tile.old_coords]
             if tile.old_coords.is_in_rack():
-                del self._tiles_in_rack[tile.old_coords]
+                self._tiles_in_rack.remove(tile.old_coords)
 
             elif tile.old_coords.is_in_exchange_zone():
-                del self._tiles_to_exchange[tile.old_coords]
-
+                self._tiles_to_exchange.remove(tile.old_coords)
             else:
-                del self._latest_tiles[tile.old_coords]
+                self._latest_tiles.remove(tile.old_coords)
 
             self._tiles[tile.coords] = tile
             if tile.coords.is_in_rack():
-                self._tiles_in_rack[tile.coords] = tile
+                self._tiles_in_rack.add(tile.coords)
             elif tile.coords.is_in_exchange_zone():
-                self._tiles_to_exchange[tile.coords] = tile
+                self._tiles_to_exchange.add(tile.coords)
             else:
-                self._latest_tiles[tile.coords] = tile
+                self._latest_tiles.add(tile.coords)
+
+    def get_tile(self, coords):
+        return self._tiles.get(coords)
 
     def build_board_scene(self):
         self.build_squares()

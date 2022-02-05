@@ -1,7 +1,7 @@
 from typing import List, Optional
 
-from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND
-from constants import FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, LAST_ROW, CENTER
+from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND, FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, \
+    LAST_ROW, CENTER
 from direction import Direction
 
 

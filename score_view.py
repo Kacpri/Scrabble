@@ -1,9 +1,8 @@
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QHeaderView
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QFont
 
 
-class TableView(QTableWidget):
+class ScoreView(QTableWidget):
     def __init__(self, score, player, *args):
         QTableWidget.__init__(self, *args)
         self.rows, self.columns = args
@@ -27,6 +26,7 @@ class TableView(QTableWidget):
     def clear_rows(self):
         for _ in range(self.rows):
             self.removeRow(0)
+        self.count = 0
 
     def add_item(self, value):
         if not self.count % 3:
@@ -35,7 +35,7 @@ class TableView(QTableWidget):
         item = QTableWidgetItem(str(value))
         item.setTextAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         item.setFlags(item.flags() ^ (Qt.ItemIsEditable | Qt.ItemIsSelectable))
-        # item.setFont(self.font)
+        
         row = self.count // self.columns
         column = self.count % self.columns
         self.setItem(row, column, item)
