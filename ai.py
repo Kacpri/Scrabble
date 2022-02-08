@@ -2,6 +2,7 @@ from PyQt5.QtCore import QThread
 from multiprocessing import Manager, Process
 from time import sleep
 
+from sack import Sack
 from board_utils import *
 from dictionary import Dictionary
 from constants import BLANK, MAX_RACK_SIZE
@@ -111,10 +112,7 @@ class AI(QThread):
         super().__init__()
         self.tiles_from_player = tiles_from_player
         self.sack = sack
-        self.letters_remaining = ['A'] * 9 + ['I'] * 8 + ['E'] * 7 + ['O'] * 6 + ['N', 'Z'] * 5 + \
-                                 ['R', 'S', 'W', 'Y'] * 4 + ['C', 'D', 'K', 'L', 'M', 'P', 'T'] * 3 + \
-                                 ['B', 'D', 'H', 'J', 'Ł', 'U', BLANK] * 2 + \
-                                 ['Ą', 'Ę', 'Ć', 'F', 'Ń', 'Ó', 'Ś', 'Ź', 'Ż']
+        self.letters_remaining = Sack.get_all_letters()
         self.tiles_on_board = {}
         self.new_tiles = None
 
@@ -129,10 +127,10 @@ class AI(QThread):
         for letter in self.rack:
             self.letters_remaining.remove(letter)
 
-        horizontal = {}
-        vertical = {}
-        self.neighbours = {Direction.UP: vertical, Direction.DOWN: vertical,
-                           Direction.LEFT: horizontal, Direction.RIGHT: horizontal}
+        self.horizontal_neighbours = {}
+        self.vertical_neighbours = {}
+        self.neighbours = {Direction.UP: self.vertical_neighbours, Direction.DOWN: self.vertical_neighbours,
+                           Direction.LEFT: self.horizontal_neighbours, Direction.RIGHT: self.horizontal_neighbours}
 
         self.neighbourhoods_to_check = {}
         self.new_neighbourhoods_to_check = {}
@@ -290,16 +288,26 @@ class AI(QThread):
         for process in processes:
             process.join()
 
-    def closest_word_bonus(self, tile_coords, direction):
-        coords = tile_coords.on_direction(direction)
+    def closest_word_bonus(self, coords, direction, start_here=False, is_important=False):
+        if not start_here:
+            coords = coords.on_direction(direction)
+        tiles_count = 0
         distance = 1
-        tiles_behind = ''
+        letters_behind = ''
+        possibility = 1
 
         while coords.is_valid() and distance <= 7:
-            if self.tiles_on_board.get(coords) or self.tiles_on_board.get(
-                    coords.on_direction(direction.perpendicular())) or self.tiles_on_board.get(
-                    coords.on_direction(direction.perpendicular().opposite())):
-                return
+            if tile := self.tiles_on_board.get(coords):
+                if not is_important:
+                    return 1
+                letters_behind += tile.letter
+            else:
+                letters_behind += BLANK
+
+            if coords in self.neighbours[direction]:
+                if not is_important:
+                    return 1
+                possibility *= self.calculate_expandability(self.neighbours[direction].get(coords)[0])
             if coords in double_word_bonus_coords:
                 bonus = 2
                 break
@@ -309,15 +317,16 @@ class AI(QThread):
             coords.go(direction)
             distance += 1
         else:
-            return
+            return 1
 
         coords.go(direction)
         while tile := self.tiles_on_board.get(coords):
             letter, _ = tile
-            tiles_behind += letter
+            # tiles_behind += letter
             coords.go(direction)
 
-        return distance, bonus, tiles_behind
+        return 1
+        # return distance, bonus, tiles_behind
 
     def count_letters(self, letters_to_count):
         count = 0
@@ -384,8 +393,11 @@ class AI(QThread):
         if letters_factor > 1:
             letters_factor = 1
 
-        possible_letters = list(set(word.possible_prefix()) | set(word.possible_suffix()))
-        expandability = self.calculate_expandability(possible_letters)
+        pre_expandability = self.calculate_expandability(word.possible_prefix()) * self.closest_word_bonus(
+            first_coords.on_direction(word.direction.opposite()), word.direction.opposite(), True, True)
+        sub_expandability = self.calculate_expandability(word.possible_suffix()) * self.closest_word_bonus(
+            last_coords.on_direction(word.direction), word.direction, True, True)
+        expandability = max([pre_expandability, sub_expandability])
 
         evaluation_points = word_points * letters_factor * (1 - expandability / 2)
 
@@ -442,12 +454,6 @@ class AI(QThread):
 
         self.find_new_words(self.new_neighbourhoods_to_check, self.turn_words, self.turn_processes)
 
-    def run(self):
-        while True:
-            self.turn()
-            self.end_turn()
-            self.no_turn()
-
     def end_turn(self):
         wait_for_processes(self.no_turn_processes)
 
@@ -482,3 +488,9 @@ class AI(QThread):
 
         # I forget every word I found
         self.words_by_points.clear()
+
+    def run(self):
+        while True:
+            self.turn()
+            self.end_turn()
+            self.no_turn()

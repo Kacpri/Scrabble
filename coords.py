@@ -3,6 +3,7 @@ from typing import List, Optional
 from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND, FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, \
     LAST_ROW, CENTER
 from direction import Direction
+from vector import Vector
 
 
 class Coords:
@@ -127,6 +128,17 @@ class Coords:
         if direction.value % 2:
             return Coords(self.x, self.y + distance)
         return Coords(self.x + distance, self.y)
+
+    def on_vector(self, vector: Vector) -> object:
+        if not isinstance(vector, Vector):
+            raise ValueError('You must provide valid vector')
+        return Coords(self._x + vector.x, self._y + vector.y)
+
+    def move_by_vector(self, vector: Vector) -> None:
+        if not isinstance(vector, Vector):
+            raise ValueError('You must provide valid vector')
+        self._x *= vector.x
+        self._y *= vector.y
 
     def go_up(self, distance: Optional[int] = 1) -> None:
         if not isinstance(distance, int):

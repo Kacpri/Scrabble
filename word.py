@@ -47,20 +47,12 @@ class Word:
         return self._word
 
     def check_beginning(self):
-        length = len(self._word)
-        if length < 3:
-            return
-        if length > 7:
-            length = 7
-        self._is_valid = Dictionary.is_in_group(self._word[:length])
+        if len(self._word) >= 3:
+            self._is_valid = Dictionary.is_in_group(self._word[:MAX_RACK_SIZE])
 
     def check_end(self):
-        length = len(self._word)
-        if length < 3:
-            return
-        if length > 7:
-            length = 7
-        self._is_valid = Dictionary.is_in_group(self._word[-length:])
+        if len(self._word) >= 3:
+            self._is_valid = Dictionary.is_in_group(self._word[-MAX_RACK_SIZE:])
 
     def is_in_dictionary(self):
         return Dictionary.is_word_in_dictionary(self._word)
