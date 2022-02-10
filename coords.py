@@ -1,8 +1,7 @@
-from typing import List, Optional
+from typing import List
 
 from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND, FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, \
     LAST_ROW, CENTER
-from direction import Direction
 from vector import Vector
 
 
@@ -20,19 +19,6 @@ class Coords:
     @classmethod
     def algebraic_notations_to_coords(cls, algebraic_notations: List[str]) -> List[object]:
         return list(map(cls.from_notation, algebraic_notations))
-
-    @classmethod
-    def get_functions(cls, direction):
-        if not isinstance(direction, Direction):
-            raise ValueError('Invalid direction')
-        if direction == Direction.UP:
-            return cls.above, cls.below
-        elif direction == Direction.DOWN:
-            return cls.below, cls.above
-        elif direction == Direction.LEFT:
-            return cls.on_left, cls.on_right
-        elif direction == Direction.RIGHT:
-            return cls.on_right, cls.on_left
 
     def __init__(self, x: int, y: int) -> None:
         if not isinstance(y, int) or not isinstance(x, int):
@@ -96,83 +82,10 @@ class Coords:
     def copy(self) -> object:
         return Coords(self.x, self.y)
 
-    def above(self, distance: Optional[int] = 1) -> object:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        return Coords(self.x, self.y - distance)
-
-    def below(self, distance: Optional[int] = 1) -> object:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        return Coords(self.x, self.y + distance)
-
-    def on_left(self, distance: Optional[int] = 1) -> object:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        return Coords(self.x - distance, self.y)
-
-    def on_right(self, distance: Optional[int] = 1) -> object:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        return Coords(self.x + distance, self.y)
-
-    def on_direction(self, direction: object, distance: Optional[int] = 1) -> object:
-        if not isinstance(direction, Direction):
-            raise ValueError('Invalid direction')
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-
-        if direction.value > 0:
-            distance = -distance
-
-        if direction.value % 2:
-            return Coords(self.x, self.y + distance)
-        return Coords(self.x + distance, self.y)
-
-    def on_vector(self, vector: Vector) -> object:
+    def move(self, vector: Vector) -> object:
         if not isinstance(vector, Vector):
             raise ValueError('You must provide valid vector')
-        return Coords(self._x + vector.x, self._y + vector.y)
-
-    def move_by_vector(self, vector: Vector) -> None:
-        if not isinstance(vector, Vector):
-            raise ValueError('You must provide valid vector')
-        self._x *= vector.x
-        self._y *= vector.y
-
-    def go_up(self, distance: Optional[int] = 1) -> None:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        self._y -= distance
-
-    def go_down(self, distance: Optional[int] = 1) -> None:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        self._y += distance
-
-    def go_left(self, distance: Optional[int] = 1) -> None:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        self._x -= distance
-
-    def go_right(self, distance: Optional[int] = 1) -> None:
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-        self._x += distance
-
-    def go(self, direction: object, distance: Optional[int] = 1) -> None:
-        if not isinstance(direction, Direction):
-            raise ValueError('Invalid direction')
-        if not isinstance(distance, int):
-            raise ValueError('Distance must be an integer')
-
-        if direction.value > 0:
-            distance = -distance
-
-        if direction.value % 2:
-            self._y += distance
-        else:
-            self._x += distance
+        return Coords(self.x + vector.x, self.y + vector.y)
 
     def is_same_row(self, other: object) -> bool:
         if not isinstance(other, Coords):

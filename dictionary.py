@@ -45,8 +45,12 @@ class Dictionary:
             for word in words_by_length:
                 for i in range(len(word) + 1 - length):
                     group = word[i:i + length]
-                    if not any(letter in group for letter in ['v', 'x', 'q']):
-                        groups.add(group)
+                    groups.add(group)
+
+        impossible_letters = {'v', 'x', 'q'}
+        for group in list(groups):
+            if not set(group).isdisjoint(impossible_letters):
+                groups.remove(group)
         return groups
 
     @classmethod
@@ -71,6 +75,7 @@ class Dictionary:
         cls.fives = cls.load_groups(5)
         cls.sixes = cls.load_groups(6)
         cls.sevens = cls.load_groups(7)
+        cls.groups = [cls.trios, cls.quads, cls.fives, cls.sixes, cls.sevens]
 
     @classmethod
     def is_word_in_dictionary(cls, word):
@@ -91,19 +96,9 @@ class Dictionary:
     @classmethod
     def is_in_group(cls, word):
         length = len(word)
-        if length == 3:
-            group = cls.trios
-        elif length == 4:
-            group = cls.quads
-        elif length == 5:
-            group = cls.fives
-        elif length == 6:
-            group = cls.sixes
-        elif length == 7:
-            group = cls.sevens
-        else:
+        if not 3 <= length <= 7:
             return False
-        return word.lower() in group
+        return word.lower() in cls.groups[length - 3]
 
     @classmethod
     def possible_words_with_blank(cls, pattern):

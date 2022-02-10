@@ -6,7 +6,6 @@ from tile import Tile
 from sack import Sack
 from ai import AI
 from dictionary import Dictionary
-from direction import Direction
 from colors import *
 from constants import *
 from board_utils import *
@@ -135,7 +134,7 @@ class Board(QGraphicsView):
 
         coords = Coords(LEFT_RACK_BOUND, RACK_ROW)
         while coords in self._tiles_in_rack:
-            coords.go_right()
+            coords = coords.move(RIGHT)
 
         if old_coords in self._tiles_to_exchange:
             self._tiles_to_exchange.remove(old_coords)
@@ -278,7 +277,7 @@ class Board(QGraphicsView):
                 self._tiles[coords] = tile
                 self.scene.addItem(tile)
                 self.new_tiles.append(tile)
-                perpendicular_word = self.find_word(coords, word.direction.perpendicular().opposite(), False)
+                perpendicular_word = self.find_word(coords, -~word.direction, False)
                 if perpendicular_word:
                     words.append(perpendicular_word)
 
@@ -351,16 +350,13 @@ class Board(QGraphicsView):
         last_tile_coords = max(self._latest_tiles)
 
         if first_tile_coords.is_same_column(last_tile_coords):
-            direction = Direction.DOWN
+            direction = DOWN
         else:
-            direction = Direction.RIGHT
+            direction = RIGHT
 
         if len(self._latest_tiles) == 1 and (self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
                 first_tile_coords.on_left())):
             self._is_connected = True
-
-        direct_coords, opposite_coords = Coords.get_functions(direction)
-        perpendicular_coords, opposite_perpendicular_coords = Coords.get_functions(direction.perpendicular())
 
         columns = set()
         rows = set()
@@ -372,11 +368,11 @@ class Board(QGraphicsView):
             self.add_info('Litery muszą być ułożone w jednej linii')
             return
 
-        while self._tiles.get(opposite_coords(first_tile_coords)):
-            first_tile_coords = opposite_coords(first_tile_coords)
+        while self._tiles.get(first_tile_coords.move(-direction)):
+            first_tile_coords = first_tile_coords.move(-direction)
 
-        while self._tiles.get(direct_coords(last_tile_coords)):
-            last_tile_coords = direct_coords(last_tile_coords)
+        while self._tiles.get(last_tile_coords.move(direction)):
+            last_tile_coords = last_tile_coords.move(direction)
 
         current_coords = first_tile_coords
 
@@ -386,15 +382,16 @@ class Board(QGraphicsView):
                 self.add_info("Litery muszą należeć do tego samego wyrazu")
                 return
 
-            if tile.is_placed or self._tiles.get(perpendicular_coords(current_coords)) or self._tiles.get(
-                    opposite_perpendicular_coords(current_coords)):
+            if tile.is_placed or self._tiles.get(
+                    current_coords.move(~direction)) or self._tiles.get(
+                    current_coords.move(-~direction)):
                 self._is_connected = True
 
             if tile.letter == BLANK:
                 self.wait_for_blank(tile)
                 return
 
-            current_coords = direct_coords(current_coords)
+            current_coords = current_coords.move(direction)
 
         if not self._is_connected:
             self.add_info('Wyraz musi się stykać z występującymi już na planszy')
@@ -407,11 +404,11 @@ class Board(QGraphicsView):
 
         if len(columns) > 1:
             for column in columns:
-                self.find_word(Coords(column, first_tile_coords.y), direction.perpendicular().opposite())
+                self.find_word(Coords(column, first_tile_coords.y), ~direction)
 
         else:
             for row in rows:
-                self.find_word(Coords(first_tile_coords.x, row), direction.perpendicular().opposite())
+                self.find_word(Coords(first_tile_coords.x, row), ~direction)
 
         for word in self._words:
             if not Dictionary.is_word_in_dictionary(word):
@@ -444,16 +441,15 @@ class Board(QGraphicsView):
         word = ''
         word_points = 0
         word_multiplier = 1
-
-        direct_coords, opposite_coords = Coords.get_functions(direction)
+        direction = abs(direction)
 
         first_tile = coords
-        while self._tiles.get(opposite_coords(first_tile)):
-            first_tile = opposite_coords(first_tile)
+        while self._tiles.get(first_tile.move(-direction)):
+            first_tile = first_tile.move(-direction)
 
         last_tile = coords
-        while self._tiles.get(direct_coords(last_tile)):
-            last_tile = direct_coords(last_tile)
+        while self._tiles.get(last_tile.move(direction)):
+            last_tile = last_tile.move(direction)
 
         if first_tile == last_tile:
             return
@@ -478,7 +474,7 @@ class Board(QGraphicsView):
             word_points += points
             word += tile.letter
 
-            current_tile = direct_coords(current_tile)
+            current_tile = current_tile.move(direction)
 
         if is_players_turn:
             self._words.append(word)
@@ -555,16 +551,21 @@ class Board(QGraphicsView):
             bonus_fields = []
 
             for coords in bonus_field["Coords"]:
+                label = bonus_field["Name"]
+                if coords == Coords.central():
+                    label = '✸'
                 square = self._board_squares[coords]
                 square.setZValue(2)
                 bonus_fields.append(square)
-                field_name = QGraphicsSimpleTextItem(bonus_field["Name"])
+                field_name = QGraphicsSimpleTextItem(label)
                 font = field_name.font()
                 font.setPointSize(10)
+                if coords == Coords.central():
+                    font.setPointSize(20)
                 fm = QFontMetrics(font)
                 field_name.setZValue(2.1)
                 field_name.setFont(font)
-                x = coords.x * SQUARE_SIZE + (SQUARE_SIZE - fm.width(bonus_field["Name"])) / 2
+                x = coords.x * SQUARE_SIZE + (SQUARE_SIZE - fm.width(label)) / 2
                 y = coords.y * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2
                 field_name.setPos(x, y)
                 field_name.setBrush(bonus_field["Label brush"])

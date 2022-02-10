@@ -1,3 +1,5 @@
+from vector import Vector
+
 FIRST_COLUMN = 0
 LAST_COLUMN = 14
 FIRST_ROW = 0
@@ -21,3 +23,9 @@ DEFAULT_WIDTH = 680
 DEFAULT_HEIGHT = 800
 MINIMAL_WIDTH = 442
 MINIMAL_HEIGHT = 526
+
+UP = Vector(0, -1)
+DOWN = Vector(0, 1)
+LEFT = Vector(-1, 0)
+RIGHT = Vector(1, 0)
+DIRECTIONS = [UP, DOWN, LEFT, RIGHT]

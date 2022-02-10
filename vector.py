@@ -1,8 +1,4 @@
-from typing import List
-
-
 class Vector:
-
     def __init__(self, x, y):
         self._x = x
         self._y = y
@@ -16,22 +12,44 @@ class Vector:
         return self._y
 
     def __str__(self):
-        return f'({self._x}, {self._y})'
+        return f'({self.x}, {self.y})'
 
     def __neg__(self):
-        return Vector(-self._x, -self._y)
+        return Vector(-self.x, -self.y)
+
+    def __invert__(self):
+        return Vector(self.y, self.x)
+
+    def __hash__(self):
+        return hash(self.x) ^ hash(self.y)
+
+    def __eq__(self, other):
+        return other and self.x == other.x and self.y == other.y
+
+    def __ne__(self, other):
+        return self.x != other.x or self.y != other.y
+
+    def __gt__(self, other):
+        if self.x < other.x or self.y < other.y:
+            return False
+        return self.x > other.x or self.y > other.y
+
+    def __lt__(self, other):
+        if self.x > other.x or self.y > other.y:
+            return False
+        return self.x < other.x or self.y < other.y
 
     def __abs__(self):
-        return Vector(abs(self._x), abs(self._y))
+        return Vector(abs(self.x), abs(self.y))
 
     def __add__(self, other):
-        return Vector(self._x + other.x, self._y + other.y)
+        return Vector(self.x + other.x, self.y + other.y)
 
     def __sub__(self, other):
-        return Vector(self._x - other.x, self._y - other.y)
+        return Vector(self.x - other.x, self.y - other.y)
 
     def __mul__(self, other):
-        return Vector(self._x * other, self._y * other)
+        return Vector(self.x * other, self.y * other)
 
     def __rmul__(self, other):
-        return Vector(self._x * other, self._y * other)
+        return Vector(self.x * other, self.y * other)
