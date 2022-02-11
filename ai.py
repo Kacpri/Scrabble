@@ -340,6 +340,8 @@ class AI(QThread):
 
         # How many points is the word worth
         word_points = word.sum_up()
+        if self.word and word_points < self.word.evaluation_points:
+            return
 
         # How many points are letters the word worth
         points_for_letters = 0
@@ -372,7 +374,7 @@ class AI(QThread):
 
         letters_factor = word_points
         if blanks_in_word and len(self.letters_remaining) - len(word.word) > MAX_RACK_SIZE:
-            letters_factor -= 40
+            letters_factor -= 50 - points_for_letters
 
         if letters_factor < 0:
             return
@@ -393,20 +395,18 @@ class AI(QThread):
 
         print(word, word_points, letters_factor, expandability, evaluation_points)
 
-        return evaluation_points
+        if not self.word or evaluation_points > self.word.evaluation_points:
+            self.word = word
+            word.evaluation_points = evaluation_points
 
-    def choose_word(self):
-        if self.words_by_points:
-            self.word = self.words_by_points.get(max(self.words_by_points))[0]
-
-    def add_valid_words(self, words):
+    def find_best_valid_words(self, words):
         coords_to_check = set(self.new_tiles)
         for direction in DIRECTIONS:
             coords_to_check.update(list(self.new_neighbourhoods_to_check[direction]))
         while words:
             word = words.pop()
             if coords_to_check.isdisjoint(word.positions):
-                AI.add_word(self.words_by_points, word, self.evaluate_word)
+                self.evaluate_word(word)
 
     def place_word(self):
         self.new_tiles = []
@@ -439,19 +439,14 @@ class AI(QThread):
     def end_turn(self):
         wait_for_processes(self.no_turn_processes)
 
-        self.add_valid_words(self.no_turn_words)
+        self.word = None
+        self.find_best_valid_words(self.no_turn_words)
 
         wait_for_processes(self.turn_processes)
 
         while self.turn_words:
             word = self.turn_words.pop()
             self.evaluate_word(word)
-            AI.add_word(self.words_by_points, word, self.evaluate_word)
-
-        # I forget last word
-        self.word = None
-
-        self.choose_word()
 
         if not self.word:
             # exchange letters here or wait

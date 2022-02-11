@@ -354,8 +354,8 @@ class Board(QGraphicsView):
         else:
             direction = RIGHT
 
-        if len(self._latest_tiles) == 1 and (self._tiles.get(first_tile_coords.on_right()) or self._tiles.get(
-                first_tile_coords.on_left())):
+        if len(self._latest_tiles) == 1 and (self._tiles.get(first_tile_coords.move(RIGHT)) or self._tiles.get(
+                first_tile_coords.move(RIGHT))):
             self._is_connected = True
 
         columns = set()
@@ -537,7 +537,7 @@ class Board(QGraphicsView):
 
     def build_squares(self):
         brush = QBrush(LIGHT_SEA_GREEN)
-        pen = QPen(SEA_GREEN, 1, Qt.SolidLine)
+        pen = QPen(DARK_SEA_GREEN, 1, Qt.SolidLine)
 
         for row in range(LAST_ROW + 1):
             for column in range(LAST_COLUMN + 1):
@@ -597,7 +597,7 @@ class Board(QGraphicsView):
         label = QGraphicsSimpleTextItem(text)
         label.setPos(x, y)
         label.setFont(font)
-        label.setBrush(QBrush(WHITE))
+        label.setBrush(QBrush(Qt.white))
         self._labels[(x, y)] = label
         self.scene.addItem(label)
 
@@ -624,7 +624,7 @@ class Board(QGraphicsView):
             y = count * SQUARE_SIZE + (SQUARE_SIZE - fm.height()) / 2
             number_label.setPos(x, y)
             number_label.setFont(font)
-            number_label.setBrush(QBrush(WHITE))
+            number_label.setBrush(QBrush(Qt.white))
             self._labels[(x, y)] = number_label
 
             letter = chr(count + ord('A'))
@@ -633,7 +633,7 @@ class Board(QGraphicsView):
             y = -fm.height() - SQUARE_SIZE / 8
             letter_label.setPos(x, y)
             letter_label.setFont(font)
-            letter_label.setBrush(QBrush(WHITE))
+            letter_label.setBrush(QBrush(Qt.white))
             self._labels[(x, y)] = letter_label
 
             self.scene.addItem(number_label)
@@ -643,7 +643,7 @@ class Board(QGraphicsView):
 
         triple_word_bonuses = {
             "Name": "3S",
-            "Pen": QPen(DARK_RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Pen": QPen(DARK_RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.BevelJoin),
             "Brush": QBrush(RED),
             "Label brush": QBrush(DARK_RED),
             "Coords": triple_word_bonus_coords
@@ -653,7 +653,7 @@ class Board(QGraphicsView):
 
         double_word_bonuses = {
             "Name": "2S",
-            "Pen": QPen(RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Pen": QPen(RED, 1, Qt.SolidLine, Qt.RoundCap, Qt.BevelJoin),
             "Brush": QBrush(PINK),
             "Label brush": QBrush(RED),
             "Coords": double_word_bonus_coords
@@ -663,7 +663,7 @@ class Board(QGraphicsView):
 
         triple_letter_bonuses = {
             "Name": "3L",
-            "Pen": QPen(NAVY_BLUE, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Pen": QPen(NAVY_BLUE, 1, Qt.SolidLine, Qt.RoundCap, Qt.BevelJoin),
             "Brush": QBrush(BLUE),
             "Label brush": QBrush(NAVY_BLUE),
             "Coords": triple_letter_bonus_coords
@@ -673,9 +673,9 @@ class Board(QGraphicsView):
 
         double_letter_bonuses = {
             "Name": "2L",
-            "Pen": QPen(BLUE, 1, Qt.SolidLine, Qt.RoundCap, Qt.RoundJoin),
+            "Pen": QPen(BLUE2, 1, Qt.SolidLine, Qt.RoundCap, Qt.BevelJoin),
             "Brush": QBrush(LIGHT_BLUE),
-            "Label brush": QBrush(BLUE),
+            "Label brush": QBrush(BLUE2),
             "Coords": double_letter_bonus_coords
         }
         self._double_letter_bonuses = double_letter_bonus_coords

@@ -22,6 +22,7 @@ class Word:
         self._rack = rack[:]
         self._neighbours = neighbours
         self._is_valid = True
+        self.evaluation_points = 0
 
     @property
     def word(self):
