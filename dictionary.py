@@ -1,3 +1,5 @@
+from typing import List, Set
+
 from sack import Sack
 from constants import BLANK, MAX_WORD_LENGTH
 import os
@@ -11,14 +13,14 @@ def prepare_data(text):
     return words
 
 
-def words_reader(file_name):
+def words_reader(file_name: str):
     if os.path.exists(file_name):
         with open(file_name, "r", encoding='utf-8') as file:
             file_content = file.read()
         return file_content
 
 
-def words_writer(file_name, words):
+def words_writer(file_name: str, words: Set[str]):
     with open(file_name, "w", encoding='utf-8') as file:
         for word in sorted(words):
             file.write(f'{word}\n')
@@ -39,7 +41,7 @@ class Dictionary:
     dictionary = prepare_data(data)
 
     @classmethod
-    def find_groups(cls, length):
+    def find_groups(cls, length: int) -> Set[str]:
         groups = set()
         for words_by_length in cls.dictionary:
             for word in words_by_length:
@@ -54,15 +56,15 @@ class Dictionary:
         return groups
 
     @classmethod
-    def load_groups(cls, size):
-        content = words_reader(cls.directory + cls.filenames[size - 3])
+    def load_groups(cls, length: int) -> Set[str]:
+        content = words_reader(cls.directory + cls.filenames[length - 3])
         if content:
             groups = set()
             for group in content.split('\n'):
                 groups.add(group)
         else:
-            groups = cls.find_groups(size)
-            words_writer(cls.directory + cls.filenames[size - 3], groups)
+            groups = cls.find_groups(length)
+            words_writer(cls.directory + cls.filenames[length - 3], groups)
         return groups
 
     if not os.path.isdir(directory):
@@ -78,11 +80,9 @@ class Dictionary:
         cls.groups = [cls.trios, cls.quads, cls.fives, cls.sixes, cls.sevens]
 
     @classmethod
-    def is_word_in_dictionary(cls, word):
-        word = word.lower()
+    def is_word_in_dictionary(cls, word: str) -> bool:
         if BLANK in word:
             for letter in Sack.values_without_blank():
-                letter = letter.lower()
                 new_word = word.replace(BLANK, letter, 1)
                 if BLANK in new_word:
                     if cls.is_word_in_dictionary(new_word):
@@ -94,20 +94,51 @@ class Dictionary:
         return False
 
     @classmethod
-    def is_in_group(cls, word):
+    def is_in_group(cls, word: str) -> bool:
         length = len(word)
-        if not 3 <= length <= 7:
+        if length < 3:
+            return True
+        elif length > 7:
             return False
-        return word.lower() in cls.groups[length - 3]
+        return word in cls.groups[length - 3]
 
     @classmethod
-    def possible_words_with_blank(cls, pattern):
-        pattern = pattern.lower()
+    def find_suffixes(cls, word, stem_length, max_length, min_length=1):
+        suffixes = []
+
+        if max_length and len(word) < MAX_WORD_LENGTH:
+            new_word_length = len(word) + 1
+            for letter in Sack.values_without_blank():
+                new_word = word + letter
+                if cls.is_in_group(new_word[-7:]):
+                    if new_word_length - stem_length >= min_length and cls.is_word_in_dictionary(new_word):
+                        suffixes.append(new_word[stem_length:])
+                    suffixes.extend(cls.find_suffixes(new_word, stem_length, max_length - 1, min_length))
+
+        return suffixes
+
+    @classmethod
+    def find_prefixes(cls, word, stem_length, max_length, min_length=1):
+        prefixes = []
+
+        if max_length and len(word) < MAX_WORD_LENGTH:
+            new_word_length = len(word) + 1
+            for letter in Sack.values_without_blank():
+                new_word = letter + word
+                if cls.is_in_group(new_word[:7]):
+                    if new_word_length - stem_length >= min_length and cls.is_word_in_dictionary(new_word):
+                        prefixes.append(new_word[:-stem_length])
+                    prefixes.extend(cls.find_prefixes(new_word, stem_length, max_length - 1, min_length))
+
+        return prefixes
+
+    @classmethod
+    def possible_words_with_blank(cls, pattern: str) -> List[str]:
+        pattern = pattern
         if BLANK not in pattern:
             return [pattern]
         words = []
         for letter in Sack.values_without_blank():
-            letter = letter.lower()
             new_word = pattern.replace(BLANK, letter, 1)
             if BLANK in new_word:
                 words.extend(cls.possible_words_with_blank(new_word))
@@ -116,8 +147,8 @@ class Dictionary:
         return words
 
     @classmethod
-    def possible_letters(cls, pattern):
-        pattern = pattern.lower()
+    def possible_letters(cls, pattern: str) -> List[str]:
+        pattern = pattern
         if BLANK not in pattern:
             return [pattern]
 

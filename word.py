@@ -48,12 +48,10 @@ class Word:
         return self._word
 
     def check_beginning(self):
-        if len(self._word) >= 3:
-            self._is_valid = Dictionary.is_in_group(self._word[:MAX_RACK_SIZE])
+        self._is_valid = Dictionary.is_in_group(self._word[:MAX_RACK_SIZE])
 
     def check_end(self):
-        if len(self._word) >= 3:
-            self._is_valid = Dictionary.is_in_group(self._word[-MAX_RACK_SIZE:])
+        self._is_valid = Dictionary.is_in_group(self._word[-MAX_RACK_SIZE:])
 
     def is_in_dictionary(self):
         return Dictionary.is_word_in_dictionary(self._word)
@@ -75,7 +73,7 @@ class Word:
         for letter in set(self._rack):
             extra_points = 0
             if neighbours:
-                if letter.lower() not in neighbours[0]:
+                if letter not in neighbours[0]:
                     continue
                 extra_points = neighbours[1]
             if letter == BLANK:
@@ -135,9 +133,6 @@ class Word:
 
         if len(self._added_letters) == MAX_RACK_SIZE:
             self._bonus += 50
-
-    def lower(self):
-        return self._word.lower()
 
     def sum_up(self):
         return self._points * self._multiplier + self._bonus

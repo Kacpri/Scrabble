@@ -319,7 +319,7 @@ class AI(QThread):
     def count_letters(self, letters_to_count):
         count = 0
         for letter in letters_to_count:
-            count += self.letters_remaining.count(letter.upper())
+            count += self.letters_remaining.count(letter)
 
         if count:
             count += self.letters_remaining.count(BLANK)

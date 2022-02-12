@@ -317,7 +317,7 @@ class Board(QGraphicsView):
         tile = self._blanks[-1]
         new_letter = self.text_field.text()
         if new_letter.upper() in Sack.values_without_blank():
-            tile.change_to_blank(new_letter.upper())
+            tile.change_to_blank(new_letter)
             self.stop_waiting_for_blank()
             self.end_turn()
         else:
@@ -412,7 +412,7 @@ class Board(QGraphicsView):
 
         for word in self._words:
             if not Dictionary.is_word_in_dictionary(word):
-                self.add_info(f'słowo "{word.lower()}" nie występuje w słowniku')
+                self.add_info(f'słowo "{word}" nie występuje w słowniku')
                 if self._blanks:
                     self.revert_blanks()
                 return
