@@ -28,14 +28,15 @@ class Tile(QGraphicsRectItem):
         self.setPen(QPen(YELLOW2, 0))
         self.setBrush(QBrush(YELLOW))
 
-        self.letter_item = QGraphicsSimpleTextItem(letter.upper(), self)
+        tile_letter = letter.upper()
+        self.letter_item = QGraphicsSimpleTextItem(tile_letter, self)
 
         self.font = QFont("Verdana", 20)
         if not points:
             self.font.setItalic(True)
         font_metrics = QFontMetrics(self.font)
         height = font_metrics.height()
-        width = font_metrics.width(self.letter)
+        width = font_metrics.width(tile_letter)
 
         self.letter_item.setX((SQUARE_SIZE - width) / 2 - MARGIN)
         self.letter_item.setY((SQUARE_SIZE - height) / 2 - MARGIN)
