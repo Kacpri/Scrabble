@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Set
 
 from constants import EXCHANGE_ROW, RACK_ROW, LEFT_RACK_BOUND, RIGHT_RACK_BOUND, FIRST_COLUMN, FIRST_ROW, LAST_COLUMN, \
     LAST_ROW, CENTER
@@ -7,18 +7,18 @@ from vector import Vector
 
 class Coords:
     @classmethod
-    def central(cls) -> object:
+    def central(cls) -> 'Coords':
         return cls(CENTER, CENTER)
 
     @classmethod
-    def from_notation(cls, notation: str) -> object:
+    def from_notation(cls, notation: str) -> 'Coords':
         x = ord(notation[0]) - ord('A')
         y = int(notation[1:]) - 1
         return cls(x, y)
 
     @classmethod
-    def algebraic_notations_to_coords(cls, algebraic_notations: List[str]) -> List[object]:
-        return list(map(cls.from_notation, algebraic_notations))
+    def algebraic_notations_to_coords(cls, algebraic_notations: List[str]) -> Set['Coords']:
+        return set(map(cls.from_notation, algebraic_notations))
 
     def __init__(self, x: int, y: int) -> None:
         if not isinstance(y, int) or not isinstance(x, int):
@@ -41,63 +41,63 @@ class Coords:
     def __hash__(self):
         return hash(self.x * 15 + self.y)
 
-    def __lt__(self, other: object) -> bool:
+    def __lt__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         if self.x > other.x or self.y > other.y:
             return False
         return self.x < other.x or self.y < other.y
 
-    def __le__(self, other: object) -> bool:
+    def __le__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         if self.x > other.x or self.y > other.y:
             return False
         return self.x <= other.x or self.y <= other.y
 
-    def __gt__(self, other: object) -> bool:
+    def __gt__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         if self.x < other.x or self.y < other.y:
             return False
         return self.x > other.x or self.y > other.y
 
-    def __ge__(self, other: object) -> bool:
+    def __ge__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         if self.x < other.x or self.y < other.y:
             return False
         return self.x >= other.x or self.y >= other.y
 
-    def __eq__(self, other: object) -> bool:
+    def __eq__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         return self.x == other.x and self.y == other.y
 
-    def __ne__(self, other: object) -> bool:
+    def __ne__(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         return self.x != other.x or self.y != other.y
 
-    def copy(self) -> object:
+    def copy(self) -> 'Coords':
         return Coords(self.x, self.y)
 
-    def move(self, vector: Vector) -> object:
+    def move(self, vector: Vector) -> 'Coords':
         if not isinstance(vector, Vector):
             raise ValueError('You must provide valid vector')
         return Coords(self.x + vector.x, self.y + vector.y)
 
-    def is_same_row(self, other: object) -> bool:
+    def is_same_row(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         return self.y == other.y
 
-    def is_same_column(self, other: object) -> bool:
+    def is_same_column(self, other: 'Coords') -> bool:
         if not isinstance(other, Coords):
             return NotImplemented
         return self.x == other.x
 
-    def distance_to(self, other: object) -> int:
+    def distance_to(self, other: 'Coords') -> int:
         if not isinstance(other, Coords):
             return NotImplemented
         if self.is_same_row(other):

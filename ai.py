@@ -1,21 +1,24 @@
+from typing import List
+
 from PyQt5.QtCore import QThread
 from multiprocessing import Manager, Process
-from time import sleep
+from time import sleep, time
 
 from sack import Sack
 from board_utils import *
 from dictionary import Dictionary
 from constants import BLANK, MAX_RACK_SIZE, UP, DOWN, LEFT, RIGHT, DIRECTIONS
+from vector import Vector
 from word import Word
 
 
-def wait_for_processes(processes):
+def wait_for_processes(processes: List[Process]):
     for process in processes:
         process.join()
     processes.clear()
 
 
-def variation_wor(k, n):
+def variation_wor(k: int, n: int):
     result = 1
     for factor in range(n, n - k, -1):
         result *= factor
@@ -40,63 +43,71 @@ class AI(QThread):
                 return coords
             is_blank = other_tile[1] == 0
             for word in words[:]:
-                word.add_letter(other_tile[0], coords, 0, False, is_blank)
-                if not word.is_valid:
-                    words.remove(word)
+                word.add_letter(other_tile[0], coords, is_blank=is_blank)
 
     @classmethod
-    def find_words_with_direction(cls, tiles_on_board, rack, direction, neighbourhoods_to_check, neighbours, words):
+    def find_words_with_direction(cls, tiles_on_board, rack, direction, neighbourhoods_to_check, neighbours, words,
+                                  current_turn):
         words_by_points = {}
         for current in neighbourhoods_to_check:
-            offset = neighbourhoods_to_check.get(current)
-            all_words = [[] for _ in range(9)]
-            first_word = Word(rack, abs(direction), neighbours)
-            first_neighbour_coords = cls.check_neighbourhood(tiles_on_board, current, [first_word], -direction)
-            all_words[0] = [first_word]
-            for direct_level in range(1, len(rack) + 1):
-                all_words[direct_level] = []
-                for word in all_words[direct_level - 1]:
-                    all_words[direct_level].extend(word.generate_children(current))
-                all_words[direct_level - 1].clear()
-                if not all_words[direct_level]:
+            turn, offset = neighbourhoods_to_check.get(current)
+            if current_turn and turn != current_turn:
+                continue
+
+            previous_main_words = [Word(rack)]
+            first_neighbourhood = cls.check_neighbourhood(tiles_on_board, current, previous_main_words, -direction)
+
+            for letters_in_direction in range(1, len(rack) + 1):
+                current_words = []
+                for word in previous_main_words:
+                    current_words.extend(word.generate_children(current, neighbours.get(current)))
+
+                if not current_words:
                     break
 
-                next_neighbour_coords = first_neighbour_coords
-                previous_neighbour_coords = current.move(direction)
-                if previous_neighbour_coords.is_on_board() and tiles_on_board.get(previous_neighbour_coords):
-                    previous_neighbour_coords = cls.check_neighbourhood(tiles_on_board, current,
-                                                                        all_words[direct_level], direction)
-                for word in all_words[direct_level]:
+                next_neighbourhood = current.move(direction)
+                if tiles_on_board.get(next_neighbourhood):
+                    next_neighbourhood = cls.check_neighbourhood(tiles_on_board, current, current_words, direction)
+
+                for word in current_words:
                     cls.add_word(words_by_points, word, Word.sum_up)
 
-                stop_value = direct_level - offset
-                if direct_level > len(rack) / 2:
-                    stop_value = len(rack) - direct_level
-                for opposite_level in range(stop_value):
-                    if not next_neighbour_coords.is_on_board():
+                previous_main_words = current_words
+                previous_side_words = current_words[:]
+
+                previous_neighbourhood = first_neighbourhood
+
+                max_letters_in_opposite_direction = letters_in_direction - offset
+                if max_letters_in_opposite_direction + letters_in_direction > len(rack):
+                    max_letters_in_opposite_direction = len(rack) - letters_in_direction
+
+                for letters_in_opposite_direction in range(1, max_letters_in_opposite_direction + 1):
+                    if not previous_neighbourhood.is_on_board():
                         break
-                    current = next_neighbour_coords
-                    level = direct_level + opposite_level + 1
-                    all_words[level] = []
 
-                    for word in all_words[level - 1]:
-                        all_words[level].extend(word.generate_children(current))
+                    current = previous_neighbourhood
 
-                    if opposite_level > 0:
-                        all_words[level - 1].clear()
+                    current_words = []
 
-                    next_neighbour_coords = current.move(-direction)
+                    for word in previous_side_words:
+                        current_words.extend(word.generate_children(current, neighbours.get(current)))
 
-                    if tiles_on_board.get(next_neighbour_coords):
-                        next_neighbour_coords = cls.check_neighbourhood(tiles_on_board, current, all_words[level],
-                                                                        -direction)
+                    if not current_words:
+                        break
 
-                    for word in all_words[level]:
+                    previous_neighbourhood = current.move(-direction)
+                    if tiles_on_board.get(previous_neighbourhood):
+                        previous_neighbourhood = cls.check_neighbourhood(tiles_on_board, current, current_words,
+                                                                         -direction)
+
+                    for word in current_words:
                         cls.add_word(words_by_points, word, Word.sum_up)
 
-                if not previous_neighbour_coords.is_on_board():
+                    previous_side_words = current_words
+
+                if not next_neighbourhood.is_on_board():
                     break
-                current = previous_neighbour_coords
+                current = next_neighbourhood
 
         if not words_by_points:
             return
@@ -132,16 +143,15 @@ class AI(QThread):
         self.neighbours = {UP: self.horizontal_neighbours, DOWN: self.horizontal_neighbours,
                            LEFT: self.vertical_neighbours, RIGHT: self.vertical_neighbours}
 
-        self.neighbourhoods_to_check = {}
-        self.new_neighbourhoods_to_check = {}
+        self.neighbourhoods = {}
         for direction in DIRECTIONS:
-            self.neighbourhoods_to_check[direction] = {}
-            self.new_neighbourhoods_to_check[direction] = {}
+            self.neighbourhoods[direction] = {}
 
         self.turn_processes = []
         self.no_turn_processes = []
 
         self.is_turn = False
+        self.current_turn = 0
 
     def add_new_tiles(self):
         self.new_tiles = []
@@ -150,15 +160,6 @@ class AI(QThread):
             letter, points = self.tiles_from_player.get(tile_coords).get_letter_and_points()
             self.tiles_on_board[tile_coords] = (letter, points)
             self.letters_remaining.remove(letter if points else BLANK)
-
-    def remove_neighbourhood_to_check(self, neighbour, direction):
-        if self.neighbourhoods_to_check[direction].get(neighbour):
-            del self.neighbourhoods_to_check[direction][neighbour]
-
-    def remove_latest_from_neighbourhoods(self):
-        for tile in self.new_tiles:
-            for direction in DIRECTIONS:
-                self.remove_neighbourhood_to_check(tile, direction)
 
     def find_sequence(self, direction, first_neighbour_coords, sequence='', reversed_order=False):
         neighbour_coords = first_neighbour_coords
@@ -178,9 +179,19 @@ class AI(QThread):
             return neighbour
         return None
 
-    def add_neighbourhood(self, neighbourhood, direction, offset=0):
-        self.neighbourhoods_to_check[direction][neighbourhood] = offset
-        self.new_neighbourhoods_to_check[direction][neighbourhood] = offset
+    def remove_neighbourhood(self, neighbour, direction):
+        if self.neighbourhoods[direction].get(neighbour):
+            del self.neighbourhoods[direction][neighbour]
+
+    def remove_latest_from_neighbourhoods(self):
+        for tile in self.new_tiles:
+            for direction in DIRECTIONS:
+                self.remove_neighbourhood(tile, direction)
+
+    def add_neighbourhood(self, neighbourhood: Coords, direction: Vector, offset):
+        if not neighbourhood.move(direction).is_on_board():
+            return
+        self.neighbourhoods[direction][neighbourhood] = (self.current_turn, offset)
 
     def add_neighbourhoods(self, coords, direction):
         offset = 1 if direction == abs(direction) else 0
@@ -228,9 +239,9 @@ class AI(QThread):
 
     def fix_neighbourhoods(self):
         for direction in DIRECTIONS:
-            for neighbourhood in sorted(self.neighbourhoods_to_check[direction]):
+            for neighbourhood in sorted(self.neighbourhoods[direction]):
                 if self.tiles_on_board.get(neighbourhood.move(direction)):
-                    del self.neighbourhoods_to_check[direction][neighbourhood]
+                    del self.neighbourhoods[direction][neighbourhood]
 
     def update_neighbourhoods(self):
         if not self.new_tiles:
@@ -239,9 +250,6 @@ class AI(QThread):
                 self.add_neighbourhood(neighbourhood, LEFT, 1)
                 self.add_neighbourhood(neighbourhood, RIGHT, 2)
             return
-
-        for direction in DIRECTIONS:
-            self.new_neighbourhoods_to_check[direction].clear()
 
         first_tile_coords = None
         for tile_coords in self.new_tiles:
@@ -263,20 +271,20 @@ class AI(QThread):
                     self.find_vertical_neighbours(tile_coords)
 
         self.remove_latest_from_neighbourhoods()
-        self.fix_neighbourhoods()
 
-    def find_new_words(self, neighbourhoods_to_check, words, processes):
+    def find_new_words(self, neighbourhoods_to_check, words, processes, new_neighbours_only=False):
+        turn = self.current_turn if new_neighbours_only else 0
         for direction in DIRECTIONS:
-            process = Process(target=AI.find_words_with_direction,
+            process = Process(target=self.find_words_with_direction,
                               args=(self.tiles_on_board, self.rack, direction, neighbourhoods_to_check[direction],
-                                    self.neighbours[direction], words))
+                                    self.neighbours[direction], words, turn))
             processes.append(process)
         for process in processes:
             process.start()
         for process in processes:
             process.join()
 
-    def closest_word_bonus(self, coords, direction, start_here=False, is_important=False):
+    def evaluate_closest_word_bonus(self, coords, direction, start_here=False, is_important=False):
         if not start_here:
             coords = coords.move(direction)
         tiles_count = 0
@@ -296,10 +304,10 @@ class AI(QThread):
                 if not is_important:
                     return 1
                 possibility *= self.calculate_expandability(self.neighbours[direction].get(coords)[0])
-            if coords in double_word_bonus_coords:
+            if coords in double_word_bonuses:
                 bonus = 2
                 break
-            elif coords in triple_word_bonus_coords:
+            elif coords in triple_word_bonuses:
                 bonus = 3
                 break
             coords = coords.move(direction)
@@ -335,24 +343,38 @@ class AI(QThread):
         return 1 - variation_wor(MAX_RACK_SIZE, how_many_remaining - letters_count) / variation_wor(MAX_RACK_SIZE,
                                                                                                     how_many_remaining)
 
-    def evaluate_word(self, word):
-        evaluation_points = 0
+    @staticmethod
+    def points_for_letters(letters):
+        points = 0
+        for letter in letters:
+            points += Sack.get_value(letter)
 
+        return points
+
+    def evaluate_remaining_letters(self, letters):
+        evaluation_points = 0
+        vowels = consonants = blanks = 0
+
+        for letter in letters:
+            if letter in Dictionary.vowels:
+                vowels += 1
+            elif letter in Dictionary.consonants:
+                consonants += 1
+            else:
+                blanks += 1
+
+        if self.sack.is_empty():
+            if not letters:
+                evaluation_points += self.point_for_letters(self.letters_remaining)
+
+    def evaluate_word(self, word):
         # How many points is the word worth
         word_points = word.sum_up()
         if self.word and word_points < self.word.evaluation_points:
             return
 
-        # How many points are letters the word worth
-        points_for_letters = 0
-        # How many blanks does the word contain
-        blanks_in_word = 0
-        # What is the direction of the word
-
-        blanks_remaining = self.letters_remaining.count(BLANK)
-
-        first_coords = min(word.positions)
-        last_coords = max(word.positions)
+        first_coords = word.start
+        last_coords = word.end
 
         # neighbourhood_of_first = first_coords.move.word.direction.perpendicular()
         # if not tiles.get(neighbourhood_of_first):
@@ -364,24 +386,12 @@ class AI(QThread):
         # bonus = AI.closest_word_bonus(first_coords.move.word.direction.perpendicular(),
         #                               word.direction.opposite(), tiles)
 
-        for coords in word.added_letters:
-            letter, points = word.added_letters.get(coords)
-            points_for_letters += points
-            if points == 0:
-                blanks_in_word += 1
-
         # bonus = AI.closest_word_bonus(coords, word.direction, tiles)
 
         letters_factor = word_points
-        if blanks_in_word and len(self.letters_remaining) - len(word.word) > MAX_RACK_SIZE:
-            letters_factor -= 50 - points_for_letters
+        # if word._blanks and len(self.letters_remaining) - len(word.word) > MAX_RACK_SIZE:
+        #     letters_factor -= 50 - word.letter_points
 
-        if letters_factor < 0:
-            return
-
-        letters_factor /= points_for_letters * 2
-        if letters_factor > 1:
-            letters_factor = 1
 
         pre_expandability = self.calculate_expandability(word.possible_prefix())
         sub_expandability = self.calculate_expandability(word.possible_suffix())
@@ -393,8 +403,6 @@ class AI(QThread):
 
         evaluation_points = word_points * letters_factor * (1 - expandability / 2)
 
-        print(word, word_points, letters_factor, expandability, evaluation_points)
-
         if not self.word or evaluation_points > self.word.evaluation_points:
             self.word = word
             word.evaluation_points = evaluation_points
@@ -402,10 +410,15 @@ class AI(QThread):
     def find_best_valid_words(self, words):
         coords_to_check = set(self.new_tiles)
         for direction in DIRECTIONS:
-            coords_to_check.update(list(self.new_neighbourhoods_to_check[direction]))
+            for neighbourhood in self.neighbourhoods[direction]:
+                turn, _ = self.neighbourhoods[direction].get(neighbourhood)
+                if turn == self.current_turn:
+                    coords_to_check.add(neighbourhood)
+
+        words.sort(key=Word.sum_up)
         while words:
             word = words.pop()
-            if coords_to_check.isdisjoint(word.positions):
+            if coords_to_check.isdisjoint(word.added_letters.keys()):
                 self.evaluate_word(word)
 
     def place_word(self):
@@ -420,8 +433,10 @@ class AI(QThread):
     def no_turn(self):
         # I search for neighbours around placed word
         self.update_neighbourhoods()
+
+        self.fix_neighbourhoods()
         # I look for words
-        self.find_new_words(self.neighbourhoods_to_check, self.no_turn_words, self.no_turn_processes)
+        self.find_new_words(self.neighbourhoods, self.no_turn_words, self.no_turn_processes)
         # I allow myself to start turn
 
     # I start turn after finishing no_turn if player has placed his word
@@ -430,11 +445,14 @@ class AI(QThread):
         while not self.is_turn:
             sleep(0.1)
 
+        self.current_turn += 1
+
         self.add_new_tiles()
 
-        self.update_neighbourhoods()
+        if self.new_tiles:
+            self.update_neighbourhoods()
 
-        self.find_new_words(self.new_neighbourhoods_to_check, self.turn_words, self.turn_processes)
+            self.find_new_words(self.neighbourhoods, self.turn_words, self.turn_processes, True)
 
     def end_turn(self):
         wait_for_processes(self.no_turn_processes)
@@ -444,10 +462,10 @@ class AI(QThread):
 
         wait_for_processes(self.turn_processes)
 
+        self.turn_words.sort(key=Word.sum_up)
         while self.turn_words:
             word = self.turn_words.pop()
             self.evaluate_word(word)
-
         if not self.word:
             # exchange letters here or wait
             return

@@ -1,4 +1,6 @@
 from random import sample, choice
+from typing import List, Optional, Callable
+
 from constants import BLANK, MAX_RACK_SIZE
 
 
@@ -12,25 +14,25 @@ class Sack:
                    ['ą', 'ę', 'ć', 'f', 'ń', 'ó', 'ś', 'ź', 'ż']
 
     @classmethod
-    def get_all_letters(cls):
+    def get_all_letters(cls) -> List[str]:
         return cls._all_letters
 
     @classmethod
-    def get_value(cls, value):
+    def get_value(cls, value) -> int:
         return cls._values.get(value)
 
     @classmethod
-    def values_without_blank(cls):
+    def values_without_blank(cls) -> List[str]:
         return list(cls._values)[:-1]
 
-    def __init__(self, label=None):
+    def __init__(self, label: Callable = None) -> None:
         self._letters = Sack._all_letters[:]
 
-        self.label = label
+        self.update_label = label
 
-    def draw(self, quantity=MAX_RACK_SIZE):
+    def draw(self, quantity: Optional[int] = MAX_RACK_SIZE) -> List[str]:
         if not self._letters:
-            return None
+            return []
         elif len(self._letters) < quantity:
             quantity = len(self._letters)
 
@@ -39,29 +41,29 @@ class Sack:
 
         return drawn
 
-    def draw_one(self):
+    def draw_one(self) -> Optional[str]:
         if not self._letters:
             return None
 
         drawn = choice(self._letters)
         self._letters.remove(drawn)
-        self.update_label()
+        self.update_label(str(len(self._letters)))
 
         return drawn
 
-    def remove_letters(self, letters_to_remove):
+    def remove_letters(self, letters_to_remove: List[str]) -> None:
         for letter in letters_to_remove:
             self._letters.remove(letter)
-        self.update_label()
+        self.update_label(str(len(self._letters)))
 
-    def return_letters(self, letters):
+    def return_letters(self, letters: List[str]) -> None:
         for letter in letters:
             self._letters.append(letter)
-        self.update_label()
+        self.update_label(str(len(self._letters)))
 
-    def exchange(self, letters_to_exchange):
+    def exchange(self, letters_to_exchange: List[str]) -> List[str]:
         if len(letters_to_exchange) > len(self._letters):
-            return None
+            return []
         drawn = self.draw(len(letters_to_exchange))
         self.return_letters(letters_to_exchange)
         return drawn
@@ -69,6 +71,5 @@ class Sack:
     def how_many_remain(self):
         return len(self._letters)
 
-    def update_label(self):
-        if self.label:
-            self.label.setText(str(len(self._letters)))
+    def is_empty(self):
+        return not self._letters

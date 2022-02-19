@@ -69,7 +69,7 @@ class Scrabble(QMainWindow):
         self.information_area.setWidgetResizable(True)
         self.information_area.verticalScrollBar().rangeChanged.connect(self.set_to_max_value)
 
-        self.information_label = QLabel('Cześć, jak masz na imię?')
+        self.information_label = QLabel('Witaj, jak masz na imię?')
         self.information_label.setAlignment(Qt.AlignTop)
         self.information_label.setWordWrap(True)
         self.information_label.setMargin(5)
@@ -117,7 +117,8 @@ class Scrabble(QMainWindow):
         self.start_resign_button.clicked.connect(self.start_resign_button_clicked)
 
         self.board = Board(self.score, self.player_clock, self.ai_clock, self.add_info, self.text_field,
-                           self.prompt_label.setText, self.confirm_button, self.disable_buttons, self.sack_counter)
+                           self.prompt_label.setText, self.confirm_button, self.disable_buttons,
+                           self.sack_counter.setText)
 
         self.left_layout.addWidget(self.sack_widget)
         self.left_layout.addWidget(self.information_area)

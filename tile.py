@@ -3,8 +3,7 @@ from PyQt5.QtGui import QPen, QBrush, QFont, QFontMetrics
 from PyQt5.QtWidgets import QGraphicsRectItem, QGraphicsItem, QGraphicsSimpleTextItem
 
 from coords import Coords
-from dictionary import BLANK
-from constants import SQUARE_SIZE, MARGIN
+from constants import SQUARE_SIZE, MARGIN, BLANK
 from colors import *
 
 
@@ -59,18 +58,21 @@ class Tile(QGraphicsRectItem):
         self.is_placed = False
 
         if points:
-            points = QGraphicsSimpleTextItem(str(self.points), self)
-            font = QFont("Verdana", 10)
-            font_metrics = QFontMetrics(font)
-            height = font_metrics.height()
-            width = font_metrics.width(str(self.points))
-            points.setFont(font)
-            points.setBrush(QBrush(SEA_GREEN))
-            points.setX(SQUARE_SIZE - MARGIN - width)
-            points.setY(SQUARE_SIZE - MARGIN - height)
+            self.add_points()
 
     def __str__(self):
         return self.letter
+
+    def add_points(self):
+        points = QGraphicsSimpleTextItem(str(self.points), self)
+        font = QFont("Verdana", 10)
+        font_metrics = QFontMetrics(font)
+        height = font_metrics.height()
+        width = font_metrics.width(str(self.points))
+        points.setFont(font)
+        points.setBrush(QBrush(SEA_GREEN))
+        points.setX(SQUARE_SIZE - MARGIN - width)
+        points.setY(SQUARE_SIZE - MARGIN - height)
 
     def resize(self, scale):
         self.scale = scale
@@ -154,9 +156,8 @@ class Tile(QGraphicsRectItem):
     def remove_highlight(self):
         self.letter_item.setBrush(QBrush(SEA_GREEN))
 
-    def place(self, highlight=False):
-        if highlight:
-            self.letter_item.setBrush(QBrush(LIGHT_SEA_GREEN))
+    def place(self):
+        self.letter_item.setBrush(QBrush(LIGHT_SEA_GREEN))
         self.setBrush(QBrush(YELLOW2))
         self.setPen(QPen(YELLOW2, 0))
         self.setFlag(QGraphicsItem.ItemIsMovable, False)

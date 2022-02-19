@@ -12,6 +12,14 @@ class Vector:
         return self._y
 
     def __str__(self):
+        if (self.x, self.y) == (1, 0):
+            return 'RIGHT'
+        if (self.x, self.y) == (-1, 0):
+            return 'LEFT'
+        if (self.x, self.y) == (0, 1):
+            return 'DOWN'
+        if (self.x, self.y) == (0, -1):
+            return 'UP'
         return f'({self.x}, {self.y})'
 
     def __neg__(self):
