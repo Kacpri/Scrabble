@@ -33,6 +33,10 @@ class Word:
         return self._word
 
     @property
+    def rack(self) -> List[str]:
+        return self._rack
+
+    @property
     def start(self) -> Coords:
         return self._start
 

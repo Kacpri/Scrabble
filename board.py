@@ -9,7 +9,7 @@ from dictionary import Dictionary
 from colors import *
 from constants import *
 from board_utils import *
-import random
+from random import getrandbits
 
 
 class Board(QGraphicsView):
@@ -108,7 +108,7 @@ class Board(QGraphicsView):
             self.reset_game()
         self.prepare_game()
         self.is_game_started = True
-        self.ai.is_turn = bool(random.getrandbits(1))
+        self.ai.is_turn = bool(getrandbits(1))
         self.add_letters_to_rack()
         self.ai.finished.connect(self.end_ai_turn)
         self.ai.start()
@@ -421,6 +421,8 @@ class Board(QGraphicsView):
         for coords in self._latest_tiles:
             tile = self.get_tile(coords)
             tile.place()
+
+        self._blanks.clear()
 
         if len(self._latest_tiles) == MAX_RACK_SIZE:
             self._points += 50

@@ -32,7 +32,7 @@ class Tile(QGraphicsRectItem):
 
         self.font = QFont("Verdana", 20)
         if not points:
-            self.font.setItalic(True)
+            self.font.setBold(True)
         font_metrics = QFontMetrics(self.font)
         height = font_metrics.height()
         width = font_metrics.width(tile_letter)
@@ -83,7 +83,7 @@ class Tile(QGraphicsRectItem):
         if self.letter == BLANK:
             self.letter = new_letter
             self.letter_item.setText(new_letter.upper())
-            self.font.setItalic(True)
+            self.font.setBold(True)
             font_metrics = QFontMetrics(self.font)
             height = font_metrics.height()
             width = font_metrics.width(self.letter)

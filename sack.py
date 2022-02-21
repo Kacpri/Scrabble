@@ -15,7 +15,7 @@ class Sack:
 
     @classmethod
     def get_all_letters(cls) -> List[str]:
-        return cls._all_letters
+        return cls._all_letters[:]
 
     @classmethod
     def get_value(cls, value) -> int:
