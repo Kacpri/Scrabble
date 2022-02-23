@@ -84,11 +84,13 @@ class Board(QGraphicsView):
             label.setPos(x * self.scale, y * self.scale)
 
     def prepare_game(self):
-        self.is_game_started = False
         self.sack = Sack(self.sack_counter)
         self.ai = AI(self.tiles_for_ai, self.sack)
 
     def reset_game(self):
+        self.is_game_started = False
+        self.ai.stop()
+
         for tile in self._tiles.values():
             self.scene.removeItem(tile)
 
@@ -258,6 +260,9 @@ class Board(QGraphicsView):
         self.disable_buttons(True)
 
     def end_ai_turn(self):
+        if not self.is_game_started:
+            return
+
         self.ai_clock.stop()
         self.disable_buttons(False)
 

@@ -26,7 +26,6 @@ class Word:
             added_letters = {}
         self._added_letters = added_letters
         self._is_valid = True
-        self.evaluation_points = 0
 
     @property
     def word(self) -> str:
@@ -148,10 +147,10 @@ class Word:
     def sum_up(self):
         return self._points * self._multiplier + self._bonus
 
-    def possible_prefix(self, min_length: Optional[int] = 0, max_length: Optional[int] = MAX_RACK_SIZE) -> List[str]:
+    def possible_prefix(self, min_length: Optional[int] = 1, max_length: Optional[int] = 1) -> List[str]:
         return Dictionary.find_prefixes(self._word, len(self._word), max_length, min_length)
 
-    def possible_suffix(self, min_length: Optional[int] = 0, max_length: Optional[int] = MAX_RACK_SIZE) -> List[str]:
+    def possible_suffix(self, min_length: Optional[int] = 1, max_length: Optional[int] = 1) -> List[str]:
         return Dictionary.find_suffixes(self._word, len(self._word), max_length, min_length)
 
     def is_vertical(self) -> bool:

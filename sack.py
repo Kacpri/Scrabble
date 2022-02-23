@@ -25,7 +25,7 @@ class Sack:
     def values_without_blank(cls) -> List[str]:
         return list(cls._values)[:-1]
 
-    def __init__(self, label: Callable = None) -> None:
+    def __init__(self, label: Optional[Callable] = None) -> None:
         self._letters = Sack._all_letters[:]
 
         self.update_label = label
@@ -47,19 +47,22 @@ class Sack:
 
         drawn = choice(self._letters)
         self._letters.remove(drawn)
-        self.update_label(str(len(self._letters)))
+        if self.update_label:
+            self.update_label(str(len(self._letters)))
 
         return drawn
 
     def remove_letters(self, letters_to_remove: List[str]) -> None:
         for letter in letters_to_remove:
             self._letters.remove(letter)
-        self.update_label(str(len(self._letters)))
+        if self.update_label:
+            self.update_label(str(len(self._letters)))
 
     def return_letters(self, letters: List[str]) -> None:
         for letter in letters:
             self._letters.append(letter)
-        self.update_label(str(len(self._letters)))
+        if self.update_label:
+            self.update_label(str(len(self._letters)))
 
     def exchange(self, letters_to_exchange: List[str]) -> List[str]:
         if len(letters_to_exchange) > len(self._letters):

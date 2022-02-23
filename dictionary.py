@@ -8,7 +8,7 @@ def prepare_data(text):
     words = [set() for _ in range(MAX_WORD_LENGTH + 1)]
     for word in text.split('\n'):
         words[len(word)].add(word)
-
+    words[0].clear()
     return words
 
 
