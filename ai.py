@@ -1,3 +1,4 @@
+import math
 from threading import Thread
 from time import sleep
 from typing import List, Optional, Iterable, Dict, Tuple
@@ -274,36 +275,41 @@ class AI(QThread):
         for thread in threads:
             thread.join()
 
-    def evaluate_closest_word_bonus(self, start_coords: Coords, direction: Vector,
+    def evaluate_closest_word_bonus(self, coords: Coords, direction: Vector,
                                     is_neighbourhood: Optional[bool] = False) -> float:
-        coords = start_coords.copy()
         if not is_neighbourhood:
             coords = coords.move(direction)
 
+
         distance = 1
         possibility = 1
+        bonus = 1
 
-        while coords.is_valid() and distance <= MAX_RACK_SIZE:
+        while coords.is_on_board() and distance <= MAX_RACK_SIZE:
             if self.tiles_on_board.get(coords):
-                return 0
+                coords = coords.move(direction)
+                continue
+
             elif neighbours := self.neighbours[direction].get(coords):
                 possibility *= self.calculate_expandability(neighbours[0])
 
             if coords in double_word_bonuses:
-                bonus = 20
+                bonus = 3
                 break
             elif coords in triple_word_bonuses:
-                bonus = 60
+                bonus = 2
                 break
             coords = coords.move(direction)
             distance += 1
+
+        if bonus != 1:
+            evaluation = -bonus * possibility
+            if distance > 1:
+                evaluation *= (pow(12 - distance, 2) - 10) / 200
         else:
-            return 0
+            evaluation = 0
 
-        if self.tiles_on_board.get(coords.move(direction)):
-            return 0
-
-        return round(-(bonus - pow(distance, 2)) * possibility / 20, 1)
+        return evaluation
 
     def count_letters(self, letters_to_count: Iterable[str]) -> int:
         count = 0
@@ -363,22 +369,38 @@ class AI(QThread):
 
         return evaluation_points
 
-    def evaluate_expandability(self, word: Word) -> float:
+    def evaluate_prefix_expandability(self, word: Word) -> float:
         prefixes = word.possible_prefix()
+        expandability = self.calculate_expandability(prefixes)
+
+        worst_evaluation = 0
+
+        for direction in [~word.direction(), ~-word.direction()]:
+            evaluation = self.evaluate_closest_word_bonus(word.start.move(-word.direction()),
+                                                          direction, True)
+            if evaluation < worst_evaluation:
+                worst_evaluation = evaluation
+
+        return worst_evaluation * expandability
+
+    def evaluate_suffix_expandability(self, word: Word) -> float:
         suffixes = word.possible_suffix()
+        expandability = self.calculate_expandability(suffixes)
+        worst_evaluation = 0
 
-        front_expandability = self.calculate_expandability(prefixes)
-        back_expandability = self.calculate_expandability(suffixes)
+        for direction in [~word.direction(), ~-word.direction()]:
+            evaluation = self.evaluate_closest_word_bonus(word.end.move(word.direction()),
+                                                          direction, True)
 
-        front_expandability *= min(
-            self.evaluate_closest_word_bonus(word.start.move(-word.direction()), ~word.direction(), True),
-            self.evaluate_closest_word_bonus(word.start.move(-word.direction()), -~word.direction(), True)
-        )
-        back_expandability *= min(
-            self.evaluate_closest_word_bonus(word.end.move(word.direction()), ~word.direction(), True),
-            self.evaluate_closest_word_bonus(word.end.move(word.direction()), -~word.direction(), True)
-        )
-        return min(back_expandability, front_expandability) * self.points_for_letters(word.word) / 10
+            if evaluation < worst_evaluation:
+                worst_evaluation = evaluation
+
+        return worst_evaluation * expandability
+
+    def evaluate_expandability(self, word: Word) -> float:
+        prefix_expandability = self.evaluate_prefix_expandability(word)
+        suffix_expandability = self.evaluate_suffix_expandability(word)
+        return min(prefix_expandability, suffix_expandability) * self.points_for_letters(word.word) / 3
 
     def evaluate_word(self, word: Word) -> float:
         word_points = word.sum_up()
@@ -387,7 +409,7 @@ class AI(QThread):
 
         expandability_points = self.evaluate_expandability(word)
 
-        evaluation_points = word_points + remaining_letters_points - expandability_points
+        evaluation_points = word_points + remaining_letters_points + expandability_points
 
         return evaluation_points
 

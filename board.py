@@ -179,6 +179,7 @@ class Board(QGraphicsView):
         self.end_game()
 
     def end_game(self):
+        self.disable_buttons(True)
         player_score = self.score.get_score('Gracz')
         ai_score = self.score.get_score('AI')
         if player_score > ai_score:
