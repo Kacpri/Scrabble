@@ -1,4 +1,3 @@
-import math
 from threading import Thread
 from time import sleep
 from typing import List, Optional, Iterable, Dict, Tuple
@@ -280,7 +279,6 @@ class AI(QThread):
         if not is_neighbourhood:
             coords = coords.move(direction)
 
-
         distance = 1
         possibility = 1
         bonus = 1
@@ -482,20 +480,24 @@ class AI(QThread):
         best_evaluation_points = -100
 
         # I evaluate words, looking for the best
-        for words in self.words_by_points.values():
-            for word in words:
-                evaluation_points = self.evaluate_word(word)
-                if evaluation_points > best_evaluation_points:
-                    self.word = word
-                    best_evaluation_points = evaluation_points
-            words.clear()
-        self.words_by_points.clear()
+        if self.words_by_points:
+            best_score = max(self.words_by_points)
+            for points in self.words_by_points:
+                if points > best_score / 2:
+                    words = self.words_by_points.get(points)
+                    for word in words:
+                        evaluation_points = self.evaluate_word(word)
+                        if evaluation_points > best_evaluation_points:
+                            self.word = word
+                            best_evaluation_points = evaluation_points
+                    words.clear()
+            self.words_by_points.clear()
 
-        if not self.word:
-            self.exchange_letters()
-        else:
-            # I accept chosen word
             self.place_word()
+
+        else:
+            self.exchange_letters()
+
         self.finished.emit()
 
         self.is_turn = False
