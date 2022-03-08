@@ -1,4 +1,3 @@
-import math
 from threading import Thread
 from time import sleep
 from typing import List, Optional, Iterable, Dict, Tuple
@@ -68,6 +67,7 @@ class AI(QThread):
             letter, points = self.tiles_from_player.get(tile_coords).get_letter_and_points()
             self.tiles_on_board[tile_coords] = (letter, points)
             self.letters_remaining.remove(letter if points else BLANK)
+        self.tiles_from_player.clear()
 
     def find_sequence(self, direction: Vector, first_neighbour_coords: Coords, sequence: Optional[str] = '',
                       reversed_order: Optional[bool] = False):

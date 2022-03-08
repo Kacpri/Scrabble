@@ -16,13 +16,13 @@ class Clock(QLabel):
     def set_time(self, minutes, seconds=0):
         self.stop()
         self.time_left = QTime(0, minutes, seconds)
-        self.setText(self.time_left.toString('mm:ss'))
+        self.setText(self.time_left.toString('mm:ss.z'))
         self.is_set = True
         self.setStyleSheet('')
 
     def start(self):
         if self.is_paused and self.is_set:
-            self.timer.start(1000)
+            self.timer.start(100)
             self.is_paused = False
 
     def stop(self):
@@ -31,9 +31,9 @@ class Clock(QLabel):
             self.is_paused = True
 
     def update_time(self):
-        self.time_left = self.time_left.addSecs(-1)
+        self.time_left = self.time_left.addMSecs(-100)
         if self.time_left.minute() == 0 and self.time_left.second() == 0:
             self.stop()
             self.is_set = False
             self.setStyleSheet('QLabel { color: red}')
-        self.setText(self.time_left.toString('mm:ss'))
+        self.setText(self.time_left.toString('mm:ss.z'))
