@@ -1,5 +1,6 @@
 # Scrabble
-Single player word game written in Python
+Single player word game written in Python.
+NOTICE: The game is currently available only in Polish
 ## Table of contents
 * [General info](#general-info)
 * [Rules](#rules)
